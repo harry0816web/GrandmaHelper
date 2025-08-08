@@ -24,8 +24,11 @@
         </activity>
         <activity
             android:name=".ChatDialogActivity"
-            android:exported="true"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+            android:theme="@style/BubbleDialogTheme"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:exported="true"/>
         <service
             android:name=".BubbleService"
             android:enabled="true"

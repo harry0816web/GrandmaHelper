@@ -54,7 +54,7 @@ class BubbleService : Service() {
         windowManager.addView(deleteZoneView, deleteZoneParams)
 
         val deleteZoneImage = deleteZoneView.findViewById<ImageView>(R.id.delete_zone)
-        deleteZoneView.visibility = View.GONE
+        deleteZoneImage.visibility = View.GONE
 
         // 拖曳或點擊泡泡
         bubbleView.setOnTouchListener(object : View.OnTouchListener {
@@ -72,7 +72,7 @@ class BubbleService : Service() {
                         downX = event.rawX
                         downY = event.rawY
                         isDragging = false
-                        deleteZoneView.visibility = View.VISIBLE
+                        deleteZoneImage.visibility = View.VISIBLE
                         return true
                     }
 
@@ -93,7 +93,7 @@ class BubbleService : Service() {
                     }
 
                     MotionEvent.ACTION_UP -> {
-                        deleteZoneView.visibility = View.GONE
+                        deleteZoneImage.visibility = View.GONE
                         deleteZoneView.alpha = 0.5f
 
                         return if (isDragging) {
@@ -108,8 +108,13 @@ class BubbleService : Service() {
                             true
                         } else {
                             // 點擊事件 → 開啟對話框 Activity
-                            val intent = Intent(this@BubbleService, ChatDialogActivity::class.java)
-                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            val intent = Intent(this@BubbleService, ChatDialogActivity::class.java).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)               // 必要：從 Service 啟動
+                                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)             // 清除任何現有任務（避免主畫面跳出）
+                                addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)           // 不要動畫（更像 Dialog）
+                                addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)   // 不加入最近任務
+                                addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)             // 關掉後不保留
+                            }
                             startActivity(intent)
                             true
                         }

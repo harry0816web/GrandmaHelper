@@ -6,9 +6,8 @@
     <!-- 放垃圾桶圖案 -->
     <ImageView
         android:id="@+id/delete_zone"
-        android:background="#5500FF00"
-        android:layout_width="100dp"
-        android:layout_height="100dp"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
         android:layout_gravity="bottom|center_horizontal"
         android:layout_marginBottom="40dp"
         android:src="@drawable/ic_trash"
