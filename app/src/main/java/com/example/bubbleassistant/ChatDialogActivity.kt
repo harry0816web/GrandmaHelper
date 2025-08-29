@@ -15,6 +15,7 @@ class ChatDialogActivity : Activity() {
 
     private lateinit var editText: EditText
     private lateinit var sendButton: Button
+    private lateinit var cancelButton: Button
     private lateinit var responseView: TextView
     private lateinit var dialogBox: View
     private lateinit var rootView: View
@@ -59,7 +60,15 @@ class ChatDialogActivity : Activity() {
                 finish()            // 關掉輸入對話框（不會影響 overlay 存活）
             }, 800)
         }
-
+        cancelButton = findViewById(R.id.cancel_button)
+        cancelButton.setOnClickListener {
+            // （可選）順便收鍵盤
+            try {
+                val imm = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                imm.hideSoftInputFromWindow(editText.windowToken, 0)
+            } catch (_: Exception) {}
+            finish()  // 關閉對話框；不會出現 overlay
+        }
         // 點擊對話框外部關閉
         rootView.setOnTouchListener { _, e ->
             if (e.action == MotionEvent.ACTION_DOWN) {
