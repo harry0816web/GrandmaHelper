@@ -52,7 +52,7 @@ class BubbleService : Service() {
 
         windowManager.addView(bubbleView, layoutParams)
         windowManager.addView(deleteZoneView, deleteZoneParams)
-
+        deleteZoneView.visibility = View.GONE
         val deleteZoneImage = deleteZoneView.findViewById<ImageView>(R.id.delete_zone)
         deleteZoneImage.visibility = View.GONE
 
@@ -72,6 +72,7 @@ class BubbleService : Service() {
                         downX = event.rawX
                         downY = event.rawY
                         isDragging = false
+                        deleteZoneView.visibility = View.VISIBLE
                         deleteZoneImage.visibility = View.VISIBLE
                         return true
                     }
@@ -94,6 +95,7 @@ class BubbleService : Service() {
 
                     MotionEvent.ACTION_UP -> {
                         deleteZoneImage.visibility = View.GONE
+                        deleteZoneView.visibility = View.GONE
                         deleteZoneView.alpha = 0.5f
 
                         return if (isDragging) {
