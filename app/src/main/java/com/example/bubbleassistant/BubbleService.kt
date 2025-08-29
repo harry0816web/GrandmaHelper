@@ -11,7 +11,10 @@ import android.widget.Toast
 import android.content.res.Resources
 
 class BubbleService : Service() {
-
+    companion object {
+        const val ACTION_BUBBLE_STATE = "com.example.bubbleassistant.BUBBLE_STATE"
+        const val EXTRA_RUNNING = "running"
+    }
     private lateinit var windowManager: WindowManager
     private lateinit var bubbleView: View
     private lateinit var deleteZoneView: View
@@ -52,7 +55,9 @@ class BubbleService : Service() {
 
         windowManager.addView(bubbleView, layoutParams)
         windowManager.addView(deleteZoneView, deleteZoneParams)
-
+        // 服務啟動 -> 通知主畫面 Switch 切成 ON
+        sendBroadcast(Intent(ACTION_BUBBLE_STATE).putExtra(EXTRA_RUNNING, true))
+        deleteZoneView.visibility = View.GONE
         val deleteZoneImage = deleteZoneView.findViewById<ImageView>(R.id.delete_zone)
         deleteZoneImage.visibility = View.GONE
 
@@ -72,6 +77,7 @@ class BubbleService : Service() {
                         downX = event.rawX
                         downY = event.rawY
                         isDragging = false
+                        deleteZoneView.visibility = View.VISIBLE
                         deleteZoneImage.visibility = View.VISIBLE
                         return true
                     }
@@ -94,11 +100,12 @@ class BubbleService : Service() {
 
                     MotionEvent.ACTION_UP -> {
                         deleteZoneImage.visibility = View.GONE
+                        deleteZoneView.visibility = View.GONE
                         deleteZoneView.alpha = 0.5f
 
                         return if (isDragging) {
                             if (isOverDeleteZone()) {
-                                Toast.makeText(this@BubbleService, "泡泡已刪除", Toast.LENGTH_SHORT).show()
+                                sendBroadcast(Intent(ACTION_BUBBLE_STATE).putExtra(EXTRA_RUNNING, false))
                                 stopSelf()
                             } else {
                                 val half = Resources.getSystem().displayMetrics.widthPixels / 2
@@ -159,6 +166,7 @@ class BubbleService : Service() {
         if (::deleteZoneView.isInitialized) {
             windowManager.removeView(deleteZoneView)
         }
+        sendBroadcast(Intent(ACTION_BUBBLE_STATE).putExtra(EXTRA_RUNNING, false))
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
