@@ -22,6 +22,8 @@
         android:id="@+id/btn_check"
         android:layout_width="36dp"
         android:layout_height="36dp"
+        android:layout_marginStart="12dp"
+        android:buttonTint="#000000"
         android:checked="false"
         android:focusable="false"
         android:focusableInTouchMode="false" />
