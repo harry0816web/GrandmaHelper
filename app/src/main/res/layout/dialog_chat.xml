@@ -3,42 +3,86 @@
     android:id="@+id/dialog_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#80000000">
+    android:background="#66000000">
 
-    <!-- 中央對話框 -->
     <LinearLayout
         android:id="@+id/dialog_box"
         android:layout_width="300dp"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:background="@drawable/dialog_bg"
         android:orientation="vertical"
-        android:padding="20dp"
-        android:elevation="10dp">
+        android:background="@drawable/dialog_bg"
+        android:padding="16dp">
 
+        <!-- 標題列 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/title_text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="有甚麼可以幫你嗎？"
+                android:textSize="18sp"
+                android:textColor="#333333"
+                android:textStyle="bold" />
+
+            <ImageView
+                android:id="@+id/btn_mic"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:contentDescription="voice"
+                android:src="@android:drawable/ic_btn_speak_now"/>
+        </LinearLayout>
+
+        <!-- 多行輸入框 -->
         <EditText
             android:id="@+id/input_message"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="@string/hint_input"
-            android:textColor="#000000"
-            android:textColorHint="#888888"
-            android:inputType="text"
-            android:autofillHints="username" />
+            android:layout_height="120dp"
+            android:layout_marginTop="10dp"
+            android:background="@android:color/transparent"
+            android:hint="在這裡輸入訊息…"
+            android:gravity="top|start"
+            android:padding="8dp"
+            android:inputType="textMultiLine"
+            android:maxLines="6"
+            android:textColor="#333333"
+            android:textColorHint="#888888" />
 
-        <Button
-            android:id="@+id/send_button"
-            android:layout_width="wrap_content"
+        <!-- 按鈕列 -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/send_button"
-            android:layout_gravity="end" />
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:orientation="horizontal">
 
+            <Button
+                android:id="@+id/send_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="送出"/>
+
+            <Button
+                android:id="@+id/cancel_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="取消"
+                android:layout_marginStart="24dp"/>
+        </LinearLayout>
+
+        <!-- 可選：暫時顯示 Thinking/Debug -->
         <TextView
             android:id="@+id/response_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="#000000"
-            android:layout_marginTop="10dp" />
-
+            android:layout_marginTop="6dp"
+            android:textColor="#666666"
+            android:text="" />
     </LinearLayout>
 </FrameLayout>
