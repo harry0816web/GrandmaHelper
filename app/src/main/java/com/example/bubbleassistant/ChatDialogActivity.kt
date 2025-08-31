@@ -205,7 +205,8 @@ Captured elements: 20 (showing up to 20)
                 }
             }
         }
-
+        val closeBtn = stepView!!.findViewById<ImageButton>(R.id.btn_close)
+        closeBtn.setOnClickListener { dismissOverlay() }
         // 上滑收起（可選）
         stepView!!.setOnTouchListener(object : View.OnTouchListener {
             private var downY = 0f
