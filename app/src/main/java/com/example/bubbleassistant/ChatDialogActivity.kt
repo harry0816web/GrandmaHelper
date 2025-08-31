@@ -56,37 +56,60 @@ class ChatDialogActivity : Activity() {
             if (message.isEmpty()) return@setOnClickListener
 
             initialUserMsg = message
-            responseView.text = "Thinking..."
             sendButton.isEnabled = false
 
+            // 先關掉鍵盤與對話框，讓畫面不被遮住
+            try {
+                val imm = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                imm.hideSoftInputFromWindow(editText.windowToken, 0)
+            } catch (_: Exception) {}
+            finish()
+
+            // 背景流程：0.1s 後顯示「請稍候…」在頂部，再等 API 回覆
             OverlayAgent.scope.launch {
+                // 監控時間
+                kotlinx.coroutines.delay(100)
+                steps = mutableListOf("請稍候…")
+                withContext(Dispatchers.Main) {
+                    showStepOverlay()
+                    // 等候階段不需要勾選
+                    stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = false
+                }
+
+                // 呼叫 API 取得下一步
                 try {
                     val serverMessage = withContext(Dispatchers.IO) {
                         OverlayAgent.callAssistantApi(
                             userMsg = initialUserMsg,
                             goal = initialUserMsg,
-                            summaryText = fakeSummaryText(),            // TODO: 換成實際監控
+                            summaryText = fakeSummaryText(),
                             timestampMs = System.currentTimeMillis()
                         )
                     }.trim()
 
-                    if (serverMessage.contains("恭喜成功")) {
-                        steps = mutableListOf("🎉 恭喜成功！")
-                        showStepOverlay()
-                        showSuccessThenDismiss()
-                    } else {
-                        steps = mutableListOf(serverMessage.ifBlank { "請依畫面提示操作下一步" })
-                        showStepOverlay()
+                    withContext(Dispatchers.Main) {
+                        if (serverMessage.contains("恭喜成功")) {
+                            steps = mutableListOf("🎉 恭喜成功！")
+                            updateStepText()
+                            showSuccessThenDismiss()
+                        } else {
+                            steps = mutableListOf(serverMessage.ifBlank { "請依畫面提示操作下一步" })
+                            updateStepText()
+                            // 進入可互動狀態 → 顯示勾選
+                            stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = true
+                        }
                     }
-
-                    // 現在可以安心關畫面（scope 在 OverlayAgent，不會被取消）
-                    finish()
                 } catch (e: Exception) {
-                    responseView.text = "發生錯誤：${e.message ?: "未知錯誤"}"
-                    sendButton.isEnabled = true
+                    withContext(Dispatchers.Main) {
+                        steps = mutableListOf("發生錯誤：${e.message ?: "未知錯誤"}")
+                        updateStepText()
+                        stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = false
+                        stepView?.postDelayed({ dismissOverlay() }, 1500)
+                    }
                 }
             }
         }
+
 
         cancelButton.setOnClickListener {
             try {
@@ -177,8 +200,12 @@ Captured elements: 20 (showing up to 20)
                 isBusy = false
                 return@setOnCheckedChangeListener
             }
-
-            stepView?.findViewById<TextView>(R.id.tv_step)?.text = "請稍候…"
+            // 監控時間
+            flashHideOverlay(100L)
+            val tv = stepView?.findViewById<TextView>(R.id.tv_step)
+            val cb = stepView?.findViewById<CheckBox>(R.id.btn_check)
+            tv?.text = "請稍候…"
+            cb?.isVisible = false   // ← 把勾勾隱藏
 
             OverlayAgent.scope.launch {
                 try {
@@ -209,7 +236,7 @@ Captured elements: 20 (showing up to 20)
         }
         val closeBtn = stepView!!.findViewById<ImageButton>(R.id.btn_close)
         closeBtn.setOnClickListener {
-            steps = mutableListOf("您已結束此次任務，有問題請再次點擊泡泡輸入喔！")
+            steps = mutableListOf("已關閉任務，有問題請再次點擊泡泡詢問喔！")
             updateStepText() // 先更新文字
             // 這次不需要打勾 → 隱藏勾選框
             stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = false
@@ -229,7 +256,12 @@ Captured elements: 20 (showing up to 20)
             }
         })
     }
-
+    private fun flashHideOverlay(durationMs: Long = 100L) {
+        stepView?.let { v ->
+            v.visibility = View.GONE
+            v.postDelayed({ v.visibility = View.VISIBLE }, durationMs)
+        }
+    }
     private fun updateStepText() {
         val tv = stepView?.findViewById<TextView>(R.id.tv_step) ?: return
         tv.text = steps.firstOrNull().orEmpty()
