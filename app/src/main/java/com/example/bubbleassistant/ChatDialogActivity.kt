@@ -64,6 +64,7 @@ class ChatDialogActivity : Activity() {
                     val serverMessage = withContext(Dispatchers.IO) {
                         OverlayAgent.callAssistantApi(
                             userMsg = initialUserMsg,
+                            goal = initialUserMsg,
                             summaryText = fakeSummaryText(),            // TODO: 換成實際監控
                             timestampMs = System.currentTimeMillis()
                         )
@@ -184,6 +185,7 @@ Captured elements: 20 (showing up to 20)
                     val nextMsg = withContext(Dispatchers.IO) {
                         OverlayAgent.callAssistantApi(
                             userMsg = initialUserMsg,                // 每次都帶第一次的輸入
+                            goal = initialUserMsg,
                             summaryText = fakeSummaryText(),         // TODO: 換成實際監控
                             timestampMs = System.currentTimeMillis()
                         )
