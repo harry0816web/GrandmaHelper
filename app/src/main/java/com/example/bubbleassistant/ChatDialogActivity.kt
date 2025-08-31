@@ -64,6 +64,7 @@ class ChatDialogActivity : Activity() {
                     val serverMessage = withContext(Dispatchers.IO) {
                         OverlayAgent.callAssistantApi(
                             userMsg = initialUserMsg,
+                            goal = initialUserMsg,
                             summaryText = fakeSummaryText(),            // TODO: 換成實際監控
                             timestampMs = System.currentTimeMillis()
                         )
@@ -184,6 +185,7 @@ Captured elements: 20 (showing up to 20)
                     val nextMsg = withContext(Dispatchers.IO) {
                         OverlayAgent.callAssistantApi(
                             userMsg = initialUserMsg,                // 每次都帶第一次的輸入
+                            goal = initialUserMsg,
                             summaryText = fakeSummaryText(),         // TODO: 換成實際監控
                             timestampMs = System.currentTimeMillis()
                         )
@@ -205,7 +207,15 @@ Captured elements: 20 (showing up to 20)
                 }
             }
         }
-
+        val closeBtn = stepView!!.findViewById<ImageButton>(R.id.btn_close)
+        closeBtn.setOnClickListener {
+            steps = mutableListOf("您已結束此次任務，有問題請再次點擊泡泡輸入喔！")
+            updateStepText() // 先更新文字
+            // 這次不需要打勾 → 隱藏勾選框
+            stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = false
+            // 1.2 秒後關掉 overlay
+            stepView?.postDelayed({ dismissOverlay() }, 1200)
+        }
         // 上滑收起（可選）
         stepView!!.setOnTouchListener(object : View.OnTouchListener {
             private var downY = 0f

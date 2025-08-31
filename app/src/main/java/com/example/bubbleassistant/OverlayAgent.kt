@@ -33,9 +33,10 @@ object OverlayAgent {
 
     /** 封裝呼叫 Cloud Run（提供給畫面直接用） */
     @Throws(IOException::class)
-    fun callAssistantApi(userMsg: String, summaryText: String, timestampMs: Long): String {
+    fun callAssistantApi(userMsg: String, goal: String, summaryText: String, timestampMs: Long): String {
         val bodyJson = JSONObject().apply {
             put("user_message", userMsg)
+            put("goal", goal)
             put("screen_info", JSONObject().apply {
                 put("summaryText", summaryText)
                 put("timestampMs", timestampMs)
