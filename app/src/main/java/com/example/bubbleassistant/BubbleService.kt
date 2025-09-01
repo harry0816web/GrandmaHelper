@@ -56,7 +56,7 @@ class BubbleService : Service() {
         windowManager.addView(bubbleView, layoutParams)
         windowManager.addView(deleteZoneView, deleteZoneParams)
         // 服務啟動 -> 通知主畫面 Switch 切成 ON
-        sendBroadcast(Intent(ACTION_BUBBLE_STATE).putExtra(EXTRA_RUNNING, true))
+        sendBroadcast(Intent(ACTION_BUBBLE_STATE).putExtra(EXTRA_RUNNING, true).setPackage(packageName))
         deleteZoneView.visibility = View.GONE
         val deleteZoneImage = deleteZoneView.findViewById<ImageView>(R.id.delete_zone)
         deleteZoneImage.visibility = View.GONE
@@ -105,7 +105,7 @@ class BubbleService : Service() {
 
                         return if (isDragging) {
                             if (isOverDeleteZone()) {
-                                sendBroadcast(Intent(ACTION_BUBBLE_STATE).putExtra(EXTRA_RUNNING, false))
+                                sendBroadcast(Intent(ACTION_BUBBLE_STATE).putExtra(EXTRA_RUNNING, false).setPackage(packageName))
                                 stopSelf()
                             } else {
                                 val half = Resources.getSystem().displayMetrics.widthPixels / 2
@@ -166,7 +166,7 @@ class BubbleService : Service() {
         if (::deleteZoneView.isInitialized) {
             windowManager.removeView(deleteZoneView)
         }
-        sendBroadcast(Intent(ACTION_BUBBLE_STATE).putExtra(EXTRA_RUNNING, false))
+        sendBroadcast(Intent(ACTION_BUBBLE_STATE).putExtra(EXTRA_RUNNING, false).setPackage(packageName))
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
