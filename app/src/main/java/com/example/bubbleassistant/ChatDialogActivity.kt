@@ -234,7 +234,7 @@ Captured elements: 20 (showing up to 20)
                 }
             }
         }
-        val closeBtn = stepView!!.findViewById<ImageButton>(R.id.btn_close)
+        val closeBtn = stepView!!.findViewById<ImageButton>(R.id.logo)
         closeBtn.setOnClickListener {
             steps = mutableListOf("已關閉任務，有問題請再次點擊泡泡詢問喔！")
             updateStepText() // 先更新文字
