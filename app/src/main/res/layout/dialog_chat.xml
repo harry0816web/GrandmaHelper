@@ -29,7 +29,8 @@
                 android:id="@+id/imageView"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                app:srcCompat="@drawable/bubble" />
+                android:src="@drawable/bubble"
+                android:contentDescription="logo" />
 
             <TextView
                 android:id="@+id/title_text"
