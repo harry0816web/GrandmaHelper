@@ -18,6 +18,7 @@ import android.widget.TextView
 import com.example.bubbleassistant.R
 import org.json.JSONObject
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.AtomicBoolean
 
 class ScreenMonitor : AccessibilityService() {
 
@@ -32,12 +33,49 @@ class ScreenMonitor : AccessibilityService() {
     // Lightweight HTTP server to expose screen info to LAN/ADB
     private var screenInfoServer: ScreenInfoServer? = null
     private val latestScreenInfoJson = AtomicReference("{\"summaryText\":\"Waiting for elements...\",\"timestampMs\":0}")
+    private val onDemandActive = AtomicBoolean(false)
+    private val autoTimeoutMs: Long = 2000L
     
     // 靜態引用，供其他類別直接訪問
     companion object {
         private var instance: ScreenMonitor? = null
         
         fun getInstance(): ScreenMonitor? = instance
+        
+        fun activateMonitoring() {
+            instance?.let { monitor ->
+                if (!monitor.onDemandActive.getAndSet(true)) {
+                    Log.i("ScreenMonitor", "🟢 啟用按需監控")
+                    monitor.startServerIfNeeded()
+                    monitor.mainHandler.post { monitor.setupOverlay() }
+                    // 啟用時立即觸發一次掃描，避免回傳預設 Waiting 內容
+                    Thread {
+                        try {
+                            monitor.tryGetDataFromAllWindows()
+                            Thread.sleep(150)
+                            monitor.tryGetDataFromAllWindows()
+                        } catch (_: Throwable) {}
+                    }.start()
+                    // 自動超時關閉，避免卡住持續監控
+                    monitor.mainHandler.postDelayed({
+                        if (monitor.onDemandActive.get()) {
+                            Log.i("ScreenMonitor", "⏲️ 按需監控自動超時，執行停用")
+                            deactivateMonitoring()
+                        }
+                    }, monitor.autoTimeoutMs)
+                }
+            }
+        }
+        
+        fun deactivateMonitoring() {
+            instance?.let { monitor ->
+                if (monitor.onDemandActive.getAndSet(false)) {
+                    Log.i("ScreenMonitor", "⚪ 停用按需監控")
+                    monitor.stopServerIfRunning()
+                    monitor.mainHandler.post { monitor.removeOverlay() }
+                }
+            }
+        }
         
         fun getLatestScreenInfo(): String {
             return instance?.let { monitor ->
@@ -100,23 +138,20 @@ class ScreenMonitor : AccessibilityService() {
         info.notificationTimeout = 50 // 降低延遲以更快響應
         this.serviceInfo = info
 
-        // Initialize a lightweight overlay to show captured elements
-        setupOverlay()
+        // 不在啟動時建立 overlay，按需時才建立
 
-        // Start an embedded HTTP server to share captured info
-        try {
-            if (screenInfoServer == null) {
-                screenInfoServer = ScreenInfoServer(jsonProvider = { latestScreenInfoJson.get() }).also { it.start() }
-                Log.i(TAG, "ScreenInfoServer started on port ${ScreenInfoServer.DEFAULT_PORT}")
-            }
-        } catch (t: Throwable) {
-            Log.e(TAG, "Failed to start ScreenInfoServer", t)
-        }
+        // 僅在按需啟用時啟動 HTTP 伺服器
+        startServerIfNeeded()
     }
 
     // 當輔助功能事件發生時呼叫
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) {
+            return
+        }
+
+        // 未啟用按需監控時，保持靜默
+        if (!onDemandActive.get()) {
             return
         }
 
@@ -253,8 +288,9 @@ class ScreenMonitor : AccessibilityService() {
     }
 
     private fun updateOverlay(text: String) {
+        if (!onDemandActive.get()) return
         mainHandler.post {
-            // 只顯示簡單狀態，不顯示完整內容以避免干擾測試
+            if (overlayView == null) setupOverlay()
             val summary = when {
                 text.contains("LINE app detected") -> "LINE 監控中"
                 text.contains("Captured elements: 0") -> "等待中"
@@ -302,6 +338,17 @@ class ScreenMonitor : AccessibilityService() {
         } catch (_: Throwable) {
         } finally {
             screenInfoServer = null
+        }
+    }
+
+    private fun startServerIfNeeded() {
+        try {
+            if (onDemandActive.get() && screenInfoServer == null) {
+                screenInfoServer = ScreenInfoServer(jsonProvider = { latestScreenInfoJson.get() }).also { it.start() }
+                Log.i(TAG, "ScreenInfoServer started on port ${ScreenInfoServer.DEFAULT_PORT}")
+            }
+        } catch (t: Throwable) {
+            Log.e(TAG, "Failed to start ScreenInfoServer", t)
         }
     }
 

@@ -96,43 +96,12 @@ class ChatDialogActivity : Activity() {
                     getRealTimeScreenInfo()
                 }
                 
-                // 顯示抓取到的螢幕資訊詳細內容
-                Log.i("ChatDialog", "📱 勾選確認 - 抓取到的螢幕資訊詳細內容:")
-                Log.i("ChatDialog", "📱 螢幕資訊長度: ${screenInfo.length} 字元")
-                Log.i("ChatDialog", "📱 螢幕資訊前200字: ${screenInfo.take(200)}")
-                Log.i("ChatDialog", "📱 螢幕資訊後200字: ${screenInfo.takeLast(200)}")
-                Log.i("ChatDialog", "📱 是否包含假資料標記: ${screenInfo.contains("fakeSummaryText") || screenInfo.contains("備用資料")}")
-                Log.i("ChatDialog", "📱 是否包含錯誤訊息: ${screenInfo.contains("無法獲取") || screenInfo.contains("失敗")}")
-                
-                // 輸出完整的螢幕資訊作為 Chat Input (勾選確認)
-                Log.i("ChatDialog", "🔍 === 勾選確認 - 完整的螢幕資訊 (Chat Input) ===")
-                Log.i("ChatDialog", "🔍 使用者問題: $initialUserMsg")
-                Log.i("ChatDialog", "🔍 螢幕資訊:")
-                // 分段輸出長字串，避免 log 被截斷
-                val confirmScreenInfoChunks = screenInfo.chunked(1000)
-                confirmScreenInfoChunks.forEachIndexed { index, chunk ->
-                    Log.i("ChatDialog", "🔍 螢幕資訊片段 ${index + 1}/${confirmScreenInfoChunks.size}: $chunk")
+                // 僅保留：使用者輸入 + 詳細螢幕監控資訊
+                Log.i("ChatDialog", "📝 使用者輸入: $initialUserMsg")
+                Log.i("ChatDialog", "📋 螢幕監控資訊:")
+                screenInfo.lineSequence().forEach { line ->
+                    Log.i("ChatDialog", line)
                 }
-                Log.i("ChatDialog", "🔍 === 勾選確認 - 螢幕資訊輸出完成 ===")
-                
-                // 顯示抓取到的螢幕資訊詳細內容
-                Log.i("ChatDialog", "📱 抓取到的螢幕資訊詳細內容:")
-                Log.i("ChatDialog", "📱 螢幕資訊長度: ${screenInfo.length} 字元")
-                Log.i("ChatDialog", "📱 螢幕資訊前200字: ${screenInfo.take(200)}")
-                Log.i("ChatDialog", "📱 螢幕資訊後200字: ${screenInfo.takeLast(200)}")
-                Log.i("ChatDialog", "📱 是否包含假資料標記: ${screenInfo.contains("fakeSummaryText") || screenInfo.contains("備用資料")}")
-                Log.i("ChatDialog", "📱 是否包含錯誤訊息: ${screenInfo.contains("無法獲取") || screenInfo.contains("失敗")}")
-                
-                // 輸出完整的螢幕資訊作為 Chat Input
-                Log.i("ChatDialog", "🔍 === 完整的螢幕資訊 (Chat Input) ===")
-                Log.i("ChatDialog", "🔍 使用者問題: $initialUserMsg")
-                Log.i("ChatDialog", "🔍 螢幕資訊:")
-                // 分段輸出長字串，避免 log 被截斷
-                val screenInfoChunks = screenInfo.chunked(1000)
-                screenInfoChunks.forEachIndexed { index, chunk ->
-                    Log.i("ChatDialog", "🔍 螢幕資訊片段 ${index + 1}/${screenInfoChunks.size}: $chunk")
-                }
-                Log.i("ChatDialog", "🔍 === 螢幕資訊輸出完成 ===")
                 
                 steps = mutableListOf("請稍候…")
                 withContext(Dispatchers.Main) {
@@ -144,8 +113,6 @@ class ChatDialogActivity : Activity() {
                 // 呼叫 API 取得下一步（使用已抓取的螢幕資訊）
                 try {
                     Log.i("ChatDialog", "🤖 開始呼叫 Gemini API")
-                    Log.i("ChatDialog", "📝 發送使用者問題: $initialUserMsg")
-                    Log.i("ChatDialog", "📱 發送螢幕資訊長度: ${screenInfo.length} 字元")
                     
                     val serverMessage = withContext(Dispatchers.IO) {
                         OverlayAgent.callAssistantApi(
@@ -314,19 +281,12 @@ Captured elements: 20 (showing up to 20)
                 }
                 
                 try {
-                    Log.i("ChatDialog", "🤖 勾選確認 - 呼叫 Gemini API")
-                    Log.i("ChatDialog", "📝 發送原始問題: $initialUserMsg")
-                    Log.i("ChatDialog", "📱 發送更新後的螢幕資訊長度: ${screenInfo.length} 字元")
-                    
-                    // 輸出完整的螢幕資訊作為 Chat Input
-                    Log.i("ChatDialog", "🔍 === 勾選確認後的完整螢幕資訊 ===")
-                    Log.i("ChatDialog", "🔍 使用者問題: $initialUserMsg")
-                    Log.i("ChatDialog", "🔍 螢幕資訊:")
-                    val confirmScreenInfoChunks = screenInfo.chunked(1000)
-                    confirmScreenInfoChunks.forEachIndexed { index, chunk ->
-                        Log.i("ChatDialog", "🔍 螢幕資訊片段 ${index + 1}/${confirmScreenInfoChunks.size}: $chunk")
+                    // 勾選確認：僅保留 使用者輸入 + 詳細螢幕監控資訊（逐行輸出保留格式）
+                    Log.i("ChatDialog", "📝 使用者輸入: $initialUserMsg")
+                    Log.i("ChatDialog", "📋 螢幕監控資訊:")
+                    screenInfo.lineSequence().forEach { line ->
+                        Log.i("ChatDialog", line)
                     }
-                    Log.i("ChatDialog", "🔍 === 勾選確認螢幕資訊輸出完成 ===")
                     
                     val nextMsg = withContext(Dispatchers.IO) {
                         OverlayAgent.callAssistantApi(
@@ -429,6 +389,18 @@ Captured elements: 20 (showing up to 20)
         Log.i("ScreenMonitor", "🔍 當前時間: ${System.currentTimeMillis()}")
         Log.i("ScreenMonitor", "🔍 是否為勾選確認流程: ${Thread.currentThread().stackTrace.any { it.methodName.contains("setOnCheckedChangeListener") }}")
         
+        // 按需啟用監控（確保服務已開，並在抓取時才打開）
+        try { ScreenMonitor.activateMonitoring() } catch (_: Throwable) {}
+
+        // 若有可用，先嘗試強制刷新，提升即時性
+        try {
+            val forced = ScreenMonitor.forceRefreshScreenInfo()
+            if (forced.isNotBlank() && !forced.contains("Waiting for elements")) {
+                Log.i("ScreenMonitor", "✅ 使用強制刷新結果")
+                return forced
+            }
+        } catch (_: Throwable) {}
+
         // 方案 1: 嘗試 HTTP 方式
         val url = "http://127.0.0.1:${ScreenInfoServer.DEFAULT_PORT}/screen-info"
         Log.i("ScreenMonitor", "🌐 嘗試 HTTP 請求 URL: $url")
@@ -444,7 +416,7 @@ Captured elements: 20 (showing up to 20)
                 Log.i("ScreenMonitor", "📱 完整 JSON 回應: $jsonString")
                 
                 val jsonObject = JSONObject(jsonString)
-                val summaryText = jsonObject.optString("summaryText", "無法獲取螢幕資訊")
+                var summaryText = jsonObject.optString("summaryText", "無法獲取螢幕資訊")
                 
                 Log.i("ScreenMonitor", "✅ 成功獲取螢幕資訊 (HTTP)")
                 Log.i("ScreenMonitor", "📱 螢幕資訊長度: ${summaryText.length} 字元")
@@ -463,6 +435,24 @@ Captured elements: 20 (showing up to 20)
                 Log.i("ScreenMonitor", "🔍 包含備用資料標記: ${summaryText.contains("備用資料")}")
                 Log.i("ScreenMonitor", "🔍 包含錯誤訊息: ${summaryText.contains("無法獲取")}")
                 
+                // 若仍為 Waiting，重試一次強制刷新後再回 HTTP 一次
+                if (summaryText.contains("Waiting for elements")) {
+                    try {
+                        val forced2 = ScreenMonitor.forceRefreshScreenInfo()
+                        if (!forced2.contains("Waiting for elements")) {
+                            Log.i("ScreenMonitor", "✅ 二次強制刷新成功")
+                            return forced2
+                        }
+                        // 再取一次 HTTP（短路徑）
+                        val retryResp = httpClient.newCall(Request.Builder().url(url).build()).execute()
+                        if (retryResp.isSuccessful) {
+                            val retryJson = retryResp.body?.string().orEmpty()
+                            val retryObj = JSONObject(retryJson)
+                            val retrySummary = retryObj.optString("summaryText", summaryText)
+                            summaryText = retrySummary
+                        }
+                    } catch (_: Throwable) {}
+                }
                 summaryText
             } else {
                 Log.e("ScreenMonitor", "❌ HTTP 錯誤: ${response.code}")
@@ -495,6 +485,9 @@ Captured elements: 20 (showing up to 20)
                 Log.w("ScreenMonitor", "🔄 最終使用備用假資料")
                 "獲取螢幕資訊失敗：${e.message}\n\n使用備用資料：\n${fakeSummaryText()}"
             }
+        } finally {
+            // 抓取完成後關閉監控
+            try { ScreenMonitor.deactivateMonitoring() } catch (_: Throwable) {}
         }
     }
 }

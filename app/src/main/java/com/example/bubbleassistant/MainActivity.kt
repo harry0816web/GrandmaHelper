@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.example.bubbleassistant.ui.theme.BubbleAssistantTheme
+import android.widget.Toast
 
 class MainActivity : ComponentActivity() {
 
@@ -41,6 +42,19 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // 自動導引：若尚未授權懸浮窗，直接提示並跳設定頁
+        if (!Settings.canDrawOverlays(this)) {
+            Toast.makeText(
+                this,
+                "請在下一頁允許本 App 顯示在其他應用程式上 (懸浮窗)",
+                Toast.LENGTH_LONG
+            ).show()
+            val intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:$packageName")
+            )
+            startActivity(intent)
+        }
 
         // 監聽泡泡狀態
         ContextCompat.registerReceiver(
@@ -52,6 +66,9 @@ class MainActivity : ComponentActivity() {
 
         // 檢查無障礙服務是否啟用
         val isAccessibilityEnabled = isAccessibilityServiceEnabled()
+        var onboardingInProgress = false
+        var requestedOverlay = false
+        var requestedAccessibility = false
         
         // 有權限就預設啟動泡泡（Switch 初值 = ON）
         val defaultOn = if (Settings.canDrawOverlays(this)) {
@@ -66,6 +83,21 @@ class MainActivity : ComponentActivity() {
                 bubbleOnState = remember { mutableStateOf(bubbleOn) }
                 bubbleOn = bubbleOnState!!.value
 
+                // 導覽提示對話框狀態
+                var showOverlayGuide by remember { mutableStateOf(false) }
+                var showAccessibilityGuide by remember { mutableStateOf(false) }
+
+                // 首次進入或缺權限時觸發導引
+                LaunchedEffect(Unit) {
+                    if (!Settings.canDrawOverlays(this@MainActivity)) {
+                        showOverlayGuide = true
+                        onboardingInProgress = true
+                    } else if (!isAccessibilityServiceEnabled()) {
+                        showAccessibilityGuide = true
+                        onboardingInProgress = true
+                    }
+                }
+
                 Scaffold(
                     topBar = { TopAppBar(title = { Text("設定") }) }
                 ) { innerPadding ->
@@ -77,11 +109,7 @@ class MainActivity : ComponentActivity() {
                             if (checked) {
                                 // 要開啟：檢查懸浮窗權限
                                 if (!Settings.canDrawOverlays(this)) {
-                                    val intent = Intent(
-                                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                        Uri.parse("package:$packageName")
-                                    )
-                                    startActivity(intent) // 回來後在 onResume 再判斷
+                                    showOverlayGuide = true
                                 } else {
                                     startService(Intent(this, BubbleService::class.java))
                                     bubbleOnState?.value = true
@@ -94,10 +122,53 @@ class MainActivity : ComponentActivity() {
                         },
                         onAccessibilityToggle = { checked ->
                             if (checked) {
-                                // 開啟無障礙服務設定頁面
+                                showAccessibilityGuide = true
+                            }
+                        }
+                    )
+                }
+
+                if (showOverlayGuide) {
+                    AlertDialog(
+                        onDismissRequest = { showOverlayGuide = false },
+                        title = { Text("需要開啟泡泡視窗權限") },
+                        text = {
+                            Text("請在接下來的畫面中允許本 app 顯示於其他應用程式上 (顯示在上層/懸浮窗)。")
+                        },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                showOverlayGuide = false
+                                requestedOverlay = true
+                                val intent = Intent(
+                                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                    Uri.parse("package:$packageName")
+                                )
+                                startActivity(intent)
+                            }) { Text("前往設定") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showOverlayGuide = false }) { Text("稍後") }
+                        }
+                    )
+                }
+
+                if (showAccessibilityGuide) {
+                    AlertDialog(
+                        onDismissRequest = { showAccessibilityGuide = false },
+                        title = { Text("需要開啟協助工具服務") },
+                        text = {
+                            Text("請在接下來的畫面中找到『BubbleAssistant』並將其啟用，以允許螢幕內容分析。")
+                        },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                showAccessibilityGuide = false
+                                requestedAccessibility = true
                                 val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
                                 startActivity(intent)
-                            }
+                            }) { Text("前往設定") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showAccessibilityGuide = false }) { Text("稍後") }
                         }
                     )
                 }
@@ -120,6 +191,13 @@ class MainActivity : ComponentActivity() {
         
         // 更新無障礙服務狀態
         accessibilityOnState?.value = isAccessibilityServiceEnabled()
+
+        // Onboarding 流程：依序引導開啟兩個權限
+        if (Settings.canDrawOverlays(this) && !isAccessibilityServiceEnabled()) {
+            Toast.makeText(this, "請在下一頁開啟『BubbleAssistant』的協助工具服務", Toast.LENGTH_LONG).show()
+            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+            startActivity(intent)
+        }
     }
 
     override fun onDestroy() {
