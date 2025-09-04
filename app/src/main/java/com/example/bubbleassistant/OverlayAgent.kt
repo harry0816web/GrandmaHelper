@@ -14,7 +14,7 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 object OverlayAgent {
-
+    @Volatile var taskActive: Boolean = false
     // 全域、可長存的 scope（不會跟 Activity 一起被銷毀）
     val scope: CoroutineScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
