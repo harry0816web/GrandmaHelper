@@ -171,6 +171,7 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         try { unregisterReceiver(stateReceiver) } catch (_: Exception) {}
+        stopService(Intent(this, BubbleService::class.java))
     }
 
     /**
