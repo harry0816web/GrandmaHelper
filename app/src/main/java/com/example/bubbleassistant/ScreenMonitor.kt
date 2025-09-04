@@ -394,18 +394,493 @@ class ScreenMonitor : AccessibilityService() {
                 className.contains("View", ignoreCase = true)
     }
     
+    /**
+     * 檢查頂層頁面，處理設定頁特例邏輯
+     * 若偵測到設定頁且有子畫面，則返回子畫面容器作為新的根節點
+     */
+    private fun inspectTopPage(root: AccessibilityNodeInfo): AccessibilityNodeInfo {
+        try {
+            Log.d(TAG, "🔍 開始檢查頂層頁面...")
+            
+            // 1. 檢查是否有 header_title == "設定"
+            val settingsHeader = findHeaderWithTitle(root, "設定")
+            if (settingsHeader == null) {
+                Log.d(TAG, "未找到設定頁標題，使用原始根節點")
+                return root
+            }
+            
+            Log.d(TAG, "✅ 找到設定頁標題")
+            
+            // 2. 檢查是否有設定清單的徵兆
+            val hasSettingList = hasSettingListIndicators(root)
+            if (!hasSettingList) {
+                Log.d(TAG, "未找到設定清單徵兆，使用原始根節點")
+                return root
+            }
+            
+            Log.d(TAG, "✅ 找到設定清單徵兆")
+            
+            // 3. 掃描容器內是否還有其他 header_title
+            val otherHeaders = findAllHeaders(root)
+            val nonSettingsHeaders = otherHeaders.filter { header ->
+                val text = header.text?.toString()?.trim()
+                text != null && text != "設定" && text.isNotBlank()
+            }
+            
+            if (nonSettingsHeaders.isEmpty()) {
+                Log.d(TAG, "未找到其他標題，使用原始根節點")
+                return root
+            }
+            
+            Log.d(TAG, "✅ 找到 ${nonSettingsHeaders.size} 個非設定標題")
+            
+            // 4. 取文字 ≠ "設定" 且 bottom 最大的 header_title 當作子畫面 header
+            val subPageHeader = findBottomMostHeader(nonSettingsHeaders)
+            if (subPageHeader == null) {
+                Log.d(TAG, "無法找到子畫面標題，使用原始根節點")
+                return root
+            }
+            
+            val subPageTitle = subPageHeader.text?.toString()?.trim() ?: "Unknown"
+            Log.d(TAG, "✅ 找到子畫面標題: $subPageTitle")
+            
+            // 5. 從該 header 往上找最近的「頁面容器」（同時含 header 與 scrollable）
+            val pageContainer = findPageContainerFromHeader(subPageHeader)
+            if (pageContainer == null) {
+                Log.d(TAG, "無法找到頁面容器，使用原始根節點")
+                return root
+            }
+            
+            Log.d(TAG, "✅ 找到子畫面容器，切換到子畫面: $subPageTitle")
+            return pageContainer
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "檢查頂層頁面時發生錯誤", e)
+            return root
+        }
+    }
+    
+    /**
+     * 尋找指定標題的 header
+     */
+    private fun findHeaderWithTitle(root: AccessibilityNodeInfo, title: String): AccessibilityNodeInfo? {
+        val queue: ArrayDeque<AccessibilityNodeInfo> = ArrayDeque()
+        queue.add(root)
+        
+        while (queue.isNotEmpty()) {
+            val node = queue.removeFirst()
+            
+            val viewId = node.viewIdResourceName?.lowercase() ?: ""
+            val text = node.text?.toString()?.trim() ?: ""
+            
+            // 檢查是否為 header_title
+            if ((viewId.contains("header_title") || viewId.contains("title") || viewId.contains("header")) 
+                && text == title) {
+                return node
+            }
+            
+            // 檢查子節點
+            for (i in 0 until node.childCount) {
+                node.getChild(i)?.let { queue.add(it) }
+            }
+        }
+        
+        return null
+    }
+    
+    /**
+     * 檢查是否有設定清單的徵兆
+     */
+    private fun hasSettingListIndicators(root: AccessibilityNodeInfo): Boolean {
+        val queue: ArrayDeque<AccessibilityNodeInfo> = ArrayDeque()
+        queue.add(root)
+        
+        var settingListCount = 0
+        var settingTitleCount = 0
+        
+        while (queue.isNotEmpty()) {
+            val node = queue.removeFirst()
+            
+            val viewId = node.viewIdResourceName?.lowercase() ?: ""
+            val className = node.className?.toString()?.lowercase() ?: ""
+            
+            // 檢查 id 含 setting_list 的 RecyclerView
+            if (viewId.contains("setting_list") && className.contains("recyclerview")) {
+                settingListCount++
+            }
+            
+            // 檢查大量 id=setting_title 的列
+            if (viewId.contains("setting_title")) {
+                settingTitleCount++
+            }
+            
+            // 檢查子節點
+            for (i in 0 until node.childCount) {
+                node.getChild(i)?.let { queue.add(it) }
+            }
+        }
+        
+        val hasIndicators = settingListCount > 0 || settingTitleCount >= 3
+        Log.d(TAG, "設定清單徵兆檢查: setting_list=$settingListCount, setting_title=$settingTitleCount, 結果=$hasIndicators")
+        
+        return hasIndicators
+    }
+    
+    /**
+     * 尋找所有 header
+     */
+    private fun findAllHeaders(root: AccessibilityNodeInfo): List<AccessibilityNodeInfo> {
+        val headers = mutableListOf<AccessibilityNodeInfo>()
+        val queue: ArrayDeque<AccessibilityNodeInfo> = ArrayDeque()
+        queue.add(root)
+        
+        while (queue.isNotEmpty()) {
+            val node = queue.removeFirst()
+            
+            val viewId = node.viewIdResourceName?.lowercase() ?: ""
+            val text = node.text?.toString()?.trim()
+            
+            // 檢查是否為 header
+            if ((viewId.contains("header_title") || viewId.contains("title") || viewId.contains("header")) 
+                && !text.isNullOrBlank()) {
+                headers.add(node)
+            }
+            
+            // 檢查子節點
+            for (i in 0 until node.childCount) {
+                node.getChild(i)?.let { queue.add(it) }
+            }
+        }
+        
+        return headers
+    }
+    
+    /**
+     * 找到 bottom 最大的 header（最下方的標題）
+     */
+    private fun findBottomMostHeader(headers: List<AccessibilityNodeInfo>): AccessibilityNodeInfo? {
+        if (headers.isEmpty()) return null
+        
+        return headers.maxByOrNull { header ->
+            val rect = Rect()
+            header.getBoundsInScreen(rect)
+            rect.bottom
+        }
+    }
+    
+    /**
+     * 從 header 往上找最近的頁面容器（同時含 header 與 scrollable）
+     */
+    private fun findPageContainerFromHeader(header: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        var current = header.parent
+        
+        while (current != null) {
+            // 檢查是否同時包含 header 和 scrollable 元素
+            if (hasHeaderAndScrollable(current)) {
+                return current
+            }
+            current = current.parent
+        }
+        
+        return null
+    }
+    
+    /**
+     * 檢查節點是否同時包含 header 和 scrollable 元素
+     */
+    private fun hasHeaderAndScrollable(node: AccessibilityNodeInfo): Boolean {
+        val queue: ArrayDeque<AccessibilityNodeInfo> = ArrayDeque()
+        queue.add(node)
+        
+        var hasHeader = false
+        var hasScrollable = false
+        
+        while (queue.isNotEmpty()) {
+            val currentNode = queue.removeFirst()
+            
+            val viewId = currentNode.viewIdResourceName?.lowercase() ?: ""
+            val className = currentNode.className?.toString()?.lowercase() ?: ""
+            
+            // 檢查是否有 header
+            if (viewId.contains("header") || viewId.contains("title")) {
+                hasHeader = true
+            }
+            
+            // 檢查是否有 scrollable 元素
+            if (currentNode.isScrollable || className.contains("scroll") || className.contains("recycler")) {
+                hasScrollable = true
+            }
+            
+            // 如果兩者都有，直接返回
+            if (hasHeader && hasScrollable) {
+                return true
+            }
+            
+            // 檢查子節點
+            for (i in 0 until currentNode.childCount) {
+                currentNode.getChild(i)?.let { queue.add(it) }
+            }
+        }
+        
+        return false
+    }
+    
+    // 判斷是否處於 LINE 設定相關的上下文
+    private fun isSettingsContext(root: AccessibilityNodeInfo): Boolean {
+        return try {
+            // 1) 有 header_title == 設定
+            findHeaderWithTitle(root, "設定") != null ||
+            // 2) 有 setting_list / setting_title 等設定頁徵兆
+            hasSettingListIndicators(root)
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    // 判斷是否處於 LINE 主頁（home）上下文
+    private fun isHomeContext(root: AccessibilityNodeInfo): Boolean {
+        return try {
+            val queue: ArrayDeque<AccessibilityNodeInfo> = ArrayDeque()
+            queue.add(root)
+            var hits = 0
+            while (queue.isNotEmpty() && hits < 2) {
+                val node = queue.removeFirst()
+                val id = node.viewIdResourceName?.lowercase() ?: ""
+                val cls = node.className?.toString()?.lowercase() ?: ""
+                if (
+                    id.contains("home_tab_") ||
+                    id.contains("bnb_button_clickable_area") ||
+                    id.contains("main_tab_search_bar") ||
+                    id.contains("home_tab_recycler_view") ||
+                    id.contains("home_tab_list_container") ||
+                    (cls.contains("viewpager") && id.contains("viewpager"))
+                ) {
+                    hits++
+                }
+                for (i in 0 until node.childCount) node.getChild(i)?.let { queue.add(it) }
+            }
+            hits >= 2
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    // 判斷是否聊天分頁被選中（首頁底部分頁）
+    private fun isChatTabSelected(root: AccessibilityNodeInfo): Boolean {
+        return try {
+            val queue: ArrayDeque<AccessibilityNodeInfo> = ArrayDeque()
+            queue.add(root)
+            while (queue.isNotEmpty()) {
+                val node = queue.removeFirst()
+                val id = node.viewIdResourceName?.lowercase() ?: ""
+                val text = node.text?.toString()?.trim()?.lowercase() ?: ""
+                val desc = node.contentDescription?.toString()?.trim()?.lowercase() ?: ""
+                val className = node.className?.toString()?.lowercase() ?: ""
+                val isSelected = node.isSelected
+                if (
+                    id.contains("bnb_button_clickable_area") &&
+                    (
+                        isSelected ||
+                        text.contains("勾選") || desc.contains("勾選")
+                    ) &&
+                    (text.contains("聊天") || text.contains("chat") || desc.contains("聊天") || desc.contains("chat"))
+                ) {
+                    return true
+                }
+                // 某些版本只在分頁容器上標 selected，不含文字
+                if (id.contains("bnb_button_clickable_area") && isSelected && className.contains("view")) {
+                    // 較寬鬆：若同層附近存在聊天清單容器，亦可視為聊天分頁
+                    // 這裡簡化：直接返回 true，避免漏判
+                    return true
+                }
+                for (i in 0 until node.childCount) node.getChild(i)?.let { queue.add(it) }
+            }
+            false
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    // 判斷是否主頁分頁被選中
+    private fun isHomeTabSelected(root: AccessibilityNodeInfo): Boolean {
+        return try {
+            val queue: ArrayDeque<AccessibilityNodeInfo> = ArrayDeque()
+            queue.add(root)
+            while (queue.isNotEmpty()) {
+                val node = queue.removeFirst()
+                val id = node.viewIdResourceName?.lowercase() ?: ""
+                val text = node.text?.toString()?.trim()?.lowercase() ?: ""
+                val desc = node.contentDescription?.toString()?.trim()?.lowercase() ?: ""
+                val className = node.className?.toString()?.lowercase() ?: ""
+                val isSelected = node.isSelected
+                if (
+                    id.contains("bnb_button_clickable_area") &&
+                    (
+                        isSelected ||
+                        text.contains("勾選") || desc.contains("勾選")
+                    ) &&
+                    (text.contains("主頁") || text.contains("home") || desc.contains("主頁") || desc.contains("home"))
+                ) {
+                    return true
+                }
+                if (id.contains("bnb_button_clickable_area") && isSelected && className.contains("view")) {
+                    return true
+                }
+                for (i in 0 until node.childCount) node.getChild(i)?.let { queue.add(it) }
+            }
+            false
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    // 判斷是否處於聊天上下文（主列表頁存在聊天清單/標題）
+    private fun isChatContext(root: AccessibilityNodeInfo): Boolean {
+        return try {
+            val queue: ArrayDeque<AccessibilityNodeInfo> = ArrayDeque()
+            queue.add(root)
+            var hasChatList = false
+            var hasChatTitle = false
+            while (queue.isNotEmpty()) {
+                val node = queue.removeFirst()
+                val id = node.viewIdResourceName?.lowercase() ?: ""
+                val text = node.text?.toString()?.trim() ?: ""
+                val cls = node.className?.toString()?.lowercase() ?: ""
+                if (
+                    id.contains("chat_list_recycler_view") ||
+                    id.contains("chat_list_view_pager") ||
+                    (cls.contains("recyclerview") && id.contains("chat"))
+                ) {
+                    hasChatList = true
+                }
+                if (text == "聊天") {
+                    hasChatTitle = true
+                }
+                for (i in 0 until node.childCount) node.getChild(i)?.let { queue.add(it) }
+            }
+            // 嚴格：需要有聊天清單，且聊天分頁勾選或標題為「聊天」
+            hasChatList && (isChatTabSelected(root) || hasChatTitle)
+        } catch (_: Throwable) {
+            false
+        }
+    }
+    
+    /**
+     * 掃描主頁內容，特別關注 header_title 等主頁元素
+     */
+    private fun findMainPageContent(root: AccessibilityNodeInfo, items: MutableList<String>) {
+        try {
+            Log.d(TAG, "🔍 開始掃描主頁內容...")
+            
+            val queue: ArrayDeque<AccessibilityNodeInfo> = ArrayDeque()
+            queue.add(root)
+            
+            while (queue.isNotEmpty()) {
+                val node = queue.removeFirst()
+                
+                val text = node.text?.toString()?.trim()
+                val contentDesc = node.contentDescription?.toString()?.trim()
+                val hint = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    node.hintText?.toString()?.trim()
+                } else null
+                val viewId = node.viewIdResourceName
+                val className = node.className?.toString()
+                
+                val rect = Rect()
+                node.getBoundsInScreen(rect)
+                
+                val hasText = !text.isNullOrBlank() || !contentDesc.isNullOrBlank() || !hint.isNullOrBlank()
+                val isVisible = rect.width() > 0 && rect.height() > 0
+                
+                // 特別關注主頁的重要元素
+                val isMainPageElement = when {
+                    // header_title 元素
+                    viewId?.contains("header_title") == true -> true
+                    // 搜尋欄提示文字
+                    viewId?.contains("search_bar_hint") == true -> true
+                    // 主要標題
+                    viewId?.contains("main_title") == true -> true
+                    // 工具列元素
+                    viewId?.contains("toolbar") == true -> true
+                    // 導航元素
+                    viewId?.contains("navigation") == true -> true
+                    // 有文字且位置在頂部的元素
+                    hasText && rect.top < 300 -> true
+                    else -> false
+                }
+                
+                if (isVisible && (hasText || isMainPageElement)) {
+                    val displayText = text ?: contentDesc ?: hint ?: "(no text)"
+                    
+                    val interactions = mutableListOf<String>()
+                    if (node.isClickable) interactions.add("clickable")
+                    if (node.isEditable) interactions.add("editable")
+                    if (node.isScrollable) interactions.add("scrollable")
+                    if (node.isSelected) interactions.add("selected")
+                    if (node.isLongClickable) interactions.add("longClickable")
+                    if (node.isFocused) interactions.add("focused")
+                    
+                    val label = buildString {
+                        append("• \"$displayText\"")
+                        if (!viewId.isNullOrBlank()) {
+                            append("  [id=$viewId]")
+                        }
+                        if (!className.isNullOrBlank()) {
+                            val shortClass = className.substringAfterLast(".")
+                            append("  <$shortClass>")
+                        }
+                        if (interactions.isNotEmpty()) append("  {${interactions.joinToString(",")}}")
+                        append("  @(${rect.left},${rect.top},${rect.width()}x${rect.height()})")
+                    }
+                    
+                    // 將主頁元素插入到列表開頭，優先顯示
+                    items.add(0, label)
+                    Log.d(TAG, "✅ 找到主頁元素: $displayText")
+                }
+                
+                // 檢查子節點
+                for (i in 0 until node.childCount) {
+                    node.getChild(i)?.let { queue.add(it) }
+                }
+            }
+            
+            Log.d(TAG, "✅ 主頁內容掃描完成，找到 ${items.size} 個元素")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "掃描主頁內容時發生錯誤", e)
+        }
+    }
+    
     private fun buildLineSpecificSummary(root: AccessibilityNodeInfo): String {
         val items = mutableListOf<String>()
         
         try {
             Log.d(TAG, "Building LINE specific summary...")
             
-            // 識別當前頁面類型
-            val currentPageType = identifyLinePageType(root)
-            val currentPageTitle = extractCurrentPageTitle(root)
+            // 設定頁特例邏輯：檢查是否為設定頁並處理子畫面（初步）
+            val processedRoot = inspectTopPage(root)
+
+            // 僅在「設定相關頁面」時，才使用子畫面容器對焦
+            var scanRoot = processedRoot
+            if (isSettingsContext(root) || isSettingsContext(processedRoot)) {
+                selectBestHeaderTitle(processedRoot, root)?.let { header ->
+                    findPageContainerFromHeader(header)?.let { container ->
+                        scanRoot = container
+                    }
+                }
+            }
+
+            // 識別當前頁面類型（同時參考 scanRoot 與原始 root，以免漏掉在容器外的 toolbar 標題）
+            val currentPageType = identifyLinePageType(scanRoot, root)
+            // 除錯：僅列印當前容器的 header_title 候選，避免混淆
+            logAllHeaderTitles(scanRoot, label = "scanRoot")
+            val currentPageTitle = extractCurrentPageTitle(scanRoot)
             
-            // 專門查找 LINE 中的所有可見內容
-            findLineContent(root, items, 0, maxDepth = 30)
+            // 專門查找 LINE 中的所有可見內容（只掃描選定容器，避免上一頁內容）
+            findLineContent(scanRoot, items, 0, maxDepth = 30)
+            
+            // 若切換到子畫面，避免掃描上一頁的元素，避免混淆
+            // 不再額外掃描原始 root（主頁）內容
             
             Log.d(TAG, "Found ${items.size} LINE content items")
             
@@ -441,7 +916,6 @@ class ScreenMonitor : AccessibilityService() {
                 buildString {
                     // 頁面信息頭部
                     append("📱 LINE 頁面信息\n")
-                    append("頁面類型: $currentPageType\n")
                     append("頁面標題: $currentPageTitle\n")
                     append("掃描項目: ${sortedItems.size} 個 (已過濾)\n\n")
                     
@@ -495,30 +969,46 @@ class ScreenMonitor : AccessibilityService() {
                         }
                     }
                     
-                    // 添加頁面特定的信息
-                    when (currentPageType) {
-                        "Chat Settings" -> {
-                            append("\n💬 === 聊天設定頁面 ===\n")
-                            append("當前在聊天設定頁面，可以調整聊天相關的設定\n")
-                            append("主要設定項目：背景、字體大小、傳送設定等\n")
+                    // 添加頁面特定的信息（動態生成 + 主頁/聊天頁面專屬文案）
+                    val inSettings = isSettingsContext(scanRoot)
+                    val inHome = isHomeContext(scanRoot)
+                    val chatSelected = isChatTabSelected(scanRoot)
+                    val homeSelected = isHomeTabSelected(scanRoot)
+                    val inChat = isChatContext(scanRoot)
+                    val displayPageType = when {
+                        // 底部分頁優先：明確顯示聊天或主頁
+                        inHome && !inSettings && chatSelected -> "聊天頁面"
+                        inHome && !inSettings && homeSelected -> "主頁"
+                        // 其次：內容型判斷（有聊天清單且分頁或標題符合）
+                        inChat -> "聊天頁面"
+                        inHome && !inSettings -> "主頁"
+                        currentPageType == "聊天設定" -> "聊天頁面"
+                        else -> currentPageType
+                    }
+
+                    append("\n📱 === $displayPageType ===\n")
+                    
+                    if (displayPageType == "主頁") {
+                        append("當前在 LINE 主頁，可瀏覽個人資訊、好友/群組、官方帳號等\n")
+                        append("主要元素：搜尋列、我的最愛、好友/群組清單、底部分頁\n")
+                    } else if (displayPageType == "聊天頁面") {
+                        append("當前在聊天列表頁面，可以查看最近對話與未讀訊息\n")
+                        append("主要元素：搜尋列、聊天清單、未讀徽章、分頁切換\n")
+                    } else if (inSettings) {
+                        if (displayPageType == "設定主頁") {
+                            append("當前在 LINE 設定主頁，可以選擇各種設定類別\n")
+                            append("主要設定類別：個人檔案、聊天、貼圖、字型、隱私等\n")
+                        } else if (displayPageType.endsWith("設定")) {
+                            val settingName = displayPageType.removeSuffix("設定")
+                            append("當前在${settingName}設定頁面，可以調整${settingName}相關的設定\n")
+                            append("主要設定項目：${settingName}相關的各種配置選項\n")
+                        } else {
+                            append("當前在 $displayPageType 頁面\n")
+                            append("可以查看和調整相關的設定選項\n")
                         }
-                        "Profile Settings" -> {
-                            append("\n👤 === 個人檔案設定頁面 ===\n")
-                            append("當前在個人檔案設定頁面，可以修改個人資料\n")
-                            append("主要設定項目：個人資訊、帳號設定、隱私設定等\n")
-                        }
-                        "Privacy Settings" -> {
-                            append("\n🔒 === 隱私設定頁面 ===\n")
-                            append("當前在隱私設定頁面，可以調整隱私相關設定\n")
-                        }
-                        "General Settings" -> {
-                            append("\n⚙️ === 一般設定頁面 ===\n")
-                            append("當前在一般設定頁面，可以調整應用程式基本設定\n")
-                        }
-                        "Account Settings" -> {
-                            append("\n🔐 === 帳號設定頁面 ===\n")
-                            append("當前在帳號設定頁面，可以管理帳號相關設定\n")
-                        }
+                    } else {
+                        // 非設定頁面的描述（泛用）
+                        append("當前在 $displayPageType\n")
                     }
                 }
             } else {
@@ -770,10 +1260,29 @@ class ScreenMonitor : AccessibilityService() {
     }
     
     /**
-     * 識別 LINE 頁面類型
+     * 識別 LINE 頁面類型（動態方式）
      */
-    private fun identifyLinePageType(rootNode: AccessibilityNodeInfo): String {
+    private fun identifyLinePageType(rootNode: AccessibilityNodeInfo, originalRoot: AccessibilityNodeInfo? = null): String {
         try {
+            Log.d(TAG, "🔍 開始動態識別頁面類型...")
+            
+            // 首先檢查是否有子畫面的 header_title
+            val subPageHeader = selectBestHeaderTitle(rootNode, originalRoot)
+            if (subPageHeader != null) {
+                val subPageTitle = subPageHeader.text?.toString()?.trim() ?: ""
+                Log.d(TAG, "✅ 找到子畫面標題: $subPageTitle")
+                
+                // 動態生成頁面類型：直接使用 header_title 的內容 + "設定"
+                val pageType = "${subPageTitle}設定"
+                Log.d(TAG, "✅ 生成頁面類型: $pageType")
+                return pageType
+            }
+            
+            Log.d(TAG, "⚠️ 未找到子畫面標題，開始掃描所有 header_title...")
+            
+            // 若未找到子畫面標題，後續會檢查「設定主頁」
+
+            // 如果沒有子畫面標題，檢查是否為設定主頁
             val queue: ArrayDeque<AccessibilityNodeInfo> = ArrayDeque()
             queue.add(rootNode)
             
@@ -783,15 +1292,18 @@ class ScreenMonitor : AccessibilityService() {
                 val viewId = node.viewIdResourceName?.lowercase() ?: ""
                 val text = node.text?.toString()?.trim() ?: ""
                 
-                // 檢查各種頁面類型
-                when {
-                    viewId.contains("chat") || text.contains("聊天") -> return "Chat Settings"
-                    viewId.contains("profile") || text.contains("個人") -> return "Profile Settings"
-                    viewId.contains("privacy") || text.contains("隱私") -> return "Privacy Settings"
-                    viewId.contains("sticker") || text.contains("貼圖") -> return "Sticker Settings"
-                    viewId.contains("store") || text.contains("商店") -> return "Store"
-                    viewId.contains("general") || text.contains("一般") -> return "General Settings"
-                    viewId.contains("account") || text.contains("帳號") -> return "Account Settings"
+                // 檢查是否為設定主頁
+                if (viewId.contains("header_title") && text == "設定") {
+                    Log.d(TAG, "✅ 識別為設定主頁")
+                    return "設定主頁"
+                }
+                
+                // 檢查其他頁面類型（動態方式）
+                if (viewId.contains("header_title") && text.isNotBlank()) {
+                    Log.d(TAG, "✅ 找到其他 header_title: $text")
+                    val pageType = "${text}設定"
+                    Log.d(TAG, "✅ 生成頁面類型: $pageType")
+                    return pageType
                 }
                 
                 // 檢查子節點
@@ -799,11 +1311,181 @@ class ScreenMonitor : AccessibilityService() {
                     node.getChild(i)?.let { queue.add(it) }
                 }
             }
+            
+            // 最後再用啟發式找是否為設定主頁（不依賴 viewId）
+            findHeaderTitleHeuristic(rootNode, excludeText = null)?.let { header ->
+                val title = header.text?.toString()?.trim()
+                if (title == "設定") {
+                    Log.d(TAG, "✅ 啟發式識別為設定主頁")
+                    return "設定主頁"
+                }
+            }
+
+            // 若 originalRoot 存在，也用於判斷設定主頁
+            if (originalRoot != null && originalRoot !== rootNode) {
+                findHeaderTitleHeuristic(originalRoot, excludeText = null)?.let { header ->
+                    val title = header.text?.toString()?.trim()
+                    if (title == "設定") {
+                        Log.d(TAG, "✅ 原始 root 啟發式識別為設定主頁")
+                        return "設定主頁"
+                    }
+                }
+            }
+
+            Log.d(TAG, "⚠️ 未找到任何 header_title")
         } catch (e: Exception) {
             Log.e(TAG, "Error identifying page type", e)
         }
         
-        return "Unknown"
+        return "未知頁面"
+    }
+    
+    /**
+     * 找到子畫面的 header_title（非"設定"的 header_title）
+     */
+    private fun findSubPageHeader(rootNode: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        val queue: ArrayDeque<AccessibilityNodeInfo> = ArrayDeque()
+        queue.add(rootNode)
+        
+        Log.d(TAG, "🔍 開始搜尋子畫面 header_title...")
+        
+        while (queue.isNotEmpty()) {
+            val node = queue.removeFirst()
+            
+            val viewId = node.viewIdResourceName?.lowercase() ?: ""
+            val text = node.text?.toString()?.trim() ?: ""
+            
+            // 記錄所有找到的 header_title
+            if (viewId.contains("header_title")) {
+                Log.d(TAG, "📍 找到 header_title: '$text' [id=$viewId]")
+            }
+            
+            // 找到非"設定"的 header_title
+            if (viewId.contains("header_title") && text != "設定" && text.isNotBlank()) {
+                Log.d(TAG, "✅ 找到子畫面 header_title: '$text'")
+                return node
+            }
+            
+            for (i in 0 until node.childCount) {
+                node.getChild(i)?.let { queue.add(it) }
+            }
+        }
+        
+        // 如果透過 viewId 未找到，改用啟發式在頂部尋找
+        findHeaderTitleHeuristic(rootNode, excludeText = "設定")?.let { header ->
+            Log.d(TAG, "✅ 啟發式找到子畫面 header_title: '${header.text}'")
+            return header
+        }
+
+        Log.d(TAG, "⚠️ 未找到子畫面 header_title")
+        return null
+    }
+
+    // 使用頂部位置與類別作為啟發式尋找 header_title（不依賴 viewId）
+    private fun findHeaderTitleHeuristic(rootNode: AccessibilityNodeInfo, excludeText: String? = null): AccessibilityNodeInfo? {
+        val queue: ArrayDeque<AccessibilityNodeInfo> = ArrayDeque()
+        queue.add(rootNode)
+
+        val candidates: MutableList<Pair<AccessibilityNodeInfo, android.graphics.Rect>> = mutableListOf()
+        val rect = android.graphics.Rect()
+
+        while (queue.isNotEmpty()) {
+            val node = queue.removeFirst()
+
+            val className = node.className?.toString() ?: ""
+            val text = node.text?.toString()?.trim()
+
+            if (!text.isNullOrBlank() && className.contains("textview", ignoreCase = true)) {
+                node.getBoundsInScreen(rect)
+                val top = rect.top
+                val height = rect.height()
+                // 更嚴格：只考慮螢幕頂部 0~220px、且高度 40~120 的文字
+                if (top in 0..220 && height in 40..120) {
+                    if (excludeText == null || text != excludeText) {
+                        candidates.add(Pair(AccessibilityNodeInfo.obtain(node), android.graphics.Rect(rect)))
+                    }
+                }
+            }
+
+            for (i in 0 until node.childCount) {
+                node.getChild(i)?.let { queue.add(it) }
+            }
+        }
+
+        if (candidates.isEmpty()) return null
+
+        // 取 bottom 最大者（較接近最上層且實際可見的標題文字）
+        val best = candidates.maxByOrNull { it.second.bottom }?.first
+        return best
+    }
+
+    // 蒐集並從兩個 root 中選出最佳的 header_title（優先 id，其次啟發式；皆排除「設定」；比較 bottom）
+    private fun selectBestHeaderTitle(rootNode: AccessibilityNodeInfo, originalRoot: AccessibilityNodeInfo? = null): AccessibilityNodeInfo? {
+        val rect = android.graphics.Rect()
+        val idCandidates: MutableList<Pair<AccessibilityNodeInfo, Int>> = mutableListOf()
+        val heuristicCandidates: MutableList<Pair<AccessibilityNodeInfo, Int>> = mutableListOf()
+
+        fun collect(from: AccessibilityNodeInfo) {
+            // 1) 透過 id 精準找
+            run {
+                val queue: ArrayDeque<AccessibilityNodeInfo> = ArrayDeque()
+                queue.add(from)
+                while (queue.isNotEmpty()) {
+                    val node = queue.removeFirst()
+                    val id = node.viewIdResourceName?.lowercase() ?: ""
+                    val text = node.text?.toString()?.trim().orEmpty()
+                    if (id.contains("header_title") && text.isNotBlank() && text != "設定") {
+                        node.getBoundsInScreen(rect)
+                        idCandidates.add(Pair(AccessibilityNodeInfo.obtain(node), rect.bottom))
+                    }
+                    for (i in 0 until node.childCount) node.getChild(i)?.let { queue.add(it) }
+                }
+            }
+            // 2) 啟發式補強
+            findHeaderTitleHeuristic(from, excludeText = "設定")?.let { h ->
+                val t = h.text?.toString()?.trim().orEmpty()
+                if (t.isNotBlank()) {
+                    h.getBoundsInScreen(rect)
+                    heuristicCandidates.add(Pair(AccessibilityNodeInfo.obtain(h), rect.bottom))
+                }
+            }
+        }
+
+        collect(rootNode)
+        if (originalRoot != null && originalRoot !== rootNode) collect(originalRoot)
+
+        if (idCandidates.isNotEmpty()) {
+            val best = idCandidates.maxByOrNull { it.second }!!.first
+            Log.d(TAG, "✅ 最佳 header_title(由 id): '${best.text}' (bottom=${idCandidates.maxOf { it.second }})")
+            return best
+        }
+        if (heuristicCandidates.isNotEmpty()) {
+            val best = heuristicCandidates.maxByOrNull { it.second }!!.first
+            Log.d(TAG, "✅ 最佳 header_title(啟發式): '${best.text}' (bottom=${heuristicCandidates.maxOf { it.second }})")
+            return best
+        }
+        return null
+    }
+
+    // 列印所有 header_title（兩個 root 都列印）
+    private fun logAllHeaderTitles(rootNode: AccessibilityNodeInfo, label: String) {
+        val rect = android.graphics.Rect()
+        val queue: ArrayDeque<AccessibilityNodeInfo> = ArrayDeque()
+        queue.add(rootNode)
+        Log.d(TAG, "🔎 列印 header_title 候選 [$label] ...")
+        var count = 0
+        while (queue.isNotEmpty()) {
+            val node = queue.removeFirst()
+            val id = node.viewIdResourceName?.lowercase() ?: ""
+            val text = node.text?.toString()?.trim().orEmpty()
+            if ((id.contains("header_title") || (node.className?.toString()?.contains("textview", true) == true)) && text.isNotBlank()) {
+                node.getBoundsInScreen(rect)
+                Log.d(TAG, "📍 [$label] header candidate: '$text' id=$id @(${rect.left},${rect.top},${rect.width()}x${rect.height()})")
+                count++
+            }
+            for (i in 0 until node.childCount) node.getChild(i)?.let { queue.add(it) }
+        }
+        Log.d(TAG, "🔎 [$label] 總共 ${count} 個候選")
     }
 }
 
