@@ -114,6 +114,10 @@ class BubbleService : Service() {
                             }
                             true
                         } else {
+                            if (OverlayAgent.taskActive) {
+                                Toast.makeText(this@BubbleService, "請按叉叉先結束此次任務，再發問喔！", Toast.LENGTH_SHORT).show()
+                                return true
+                            }
                             // 點擊事件 → 開啟對話框 Activity
                             val intent = Intent(this@BubbleService, ChatDialogActivity::class.java).apply {
                                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)               // 必要：從 Service 啟動

@@ -67,7 +67,7 @@ class ChatDialogActivity : Activity() {
             isBusy = true
             initialUserMsg = message
             sendButton.isEnabled = false
-
+            OverlayAgent.taskActive = true
             // 收鍵盤並關閉對話框（不讓它擋畫面）
             try {
                 val imm = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
@@ -236,21 +236,9 @@ class ChatDialogActivity : Activity() {
             steps = mutableListOf("已關閉任務，有問題請再次點擊泡泡詢問喔！")
             updateStepText()
             stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = false
-            stepView?.postDelayed({ dismissOverlay() }, 1200)
+            stepView?.postDelayed({ dismissOverlay()
+                OverlayAgent.taskActive = false}, 1200)
         }
-
-        // 上滑收起（可選）
-        stepView!!.setOnTouchListener(object : View.OnTouchListener {
-            private var downY = 0f
-            override fun onTouch(v: View?, e: MotionEvent?): Boolean {
-                e ?: return false
-                when (e.action) {
-                    MotionEvent.ACTION_DOWN -> downY = e.rawY
-                    MotionEvent.ACTION_UP -> if (e.rawY - downY < -80) { dismissOverlay(); return true }
-                }
-                return false
-            }
-        })
     }
 
     private fun updateStepText() {
@@ -266,7 +254,8 @@ class ChatDialogActivity : Activity() {
         tv.text = "🎉 恭喜成功！"
         stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = false
         stepView?.visibility = View.VISIBLE
-        stepView?.postDelayed({ dismissOverlay() }, 1200)
+        stepView?.postDelayed({ dismissOverlay()
+            OverlayAgent.taskActive = false}, 1200)
     }
 
     private fun dismissOverlay() {
