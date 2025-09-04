@@ -130,7 +130,7 @@ class MainActivity : ComponentActivity() {
                         onDismissRequest = { showAccessibilityGuide.value = false },
                         title = { Text("需要開啟協助工具服務") },
                         text = {
-                            Text("請在接下來的畫面中找到『BubbleAssistant』並將其啟用，以允許螢幕內容分析")
+                            Text("請在接下來的畫面中點選『已下載的應用程式』，並找到『BubbleAssistant』將其啟用，以允許螢幕內容分析")
                         },
                         confirmButton = {
                             TextButton(onClick = {
