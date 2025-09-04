@@ -1,7 +1,6 @@
 package com.example.bubbleassistant
 
 import android.app.Activity
-import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.graphics.drawable.ColorDrawable
@@ -13,13 +12,17 @@ import androidx.core.view.isVisible
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.json.JSONObject
+import java.io.IOException
+import java.util.concurrent.TimeUnit
 
 class ChatDialogActivity : Activity() {
 
     private lateinit var editText: EditText
     private lateinit var sendButton: Button
     private lateinit var cancelButton: Button
-    private lateinit var responseView: TextView
     private lateinit var dialogBox: View
     private lateinit var rootView: View
 
@@ -27,15 +30,23 @@ class ChatDialogActivity : Activity() {
     private var wm: WindowManager? = null
     private var stepView: View? = null
     private var stepLp: WindowManager.LayoutParams? = null
-    private var steps: MutableList<String> = mutableListOf() // 永遠只放一行
-    private var initialUserMsg: String = ""                  // 第一次輸入
-    private var isBusy: Boolean = false                      // 勿連點
+    private var steps: MutableList<String> = mutableListOf() // 只放一行
+    private var initialUserMsg: String = ""
+    private var isBusy: Boolean = false
+
+    // HTTP client for fetching screen info
+    private val httpClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(5, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .build()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         // 對話框樣式
-        window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        window.setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
         window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         window.setGravity(Gravity.CENTER)
         setContentView(R.layout.dialog_chat)
@@ -43,73 +54,61 @@ class ChatDialogActivity : Activity() {
         // 綁定
         editText = findViewById(R.id.input_message)
         sendButton = findViewById(R.id.send_button)
-        responseView = findViewById(R.id.response_text)
         rootView = findViewById(R.id.dialog_root)
         dialogBox = findViewById(R.id.dialog_box)
-        cancelButton = findViewById(R.id.cancel_button)
+        val cancelButton: Button = findViewById(R.id.cancel_button)
 
         wm = applicationContext.getSystemService(WINDOW_SERVICE) as WindowManager
 
-        // 首次送出
+        // 送出
         sendButton.setOnClickListener {
             val message = editText.text.toString().trim()
-            if (message.isEmpty()) return@setOnClickListener
-
+            if (message.isEmpty() || isBusy) return@setOnClickListener
+            isBusy = true
             initialUserMsg = message
             sendButton.isEnabled = false
 
-            // 先關掉鍵盤與對話框，讓畫面不被遮住
+            // 收鍵盤並關閉對話框（不讓它擋畫面）
             try {
                 val imm = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
                 imm.hideSoftInputFromWindow(editText.windowToken, 0)
             } catch (_: Exception) {}
             finish()
 
-            // 背景流程：0.1s 後顯示「請稍候…」在頂部，再等 API 回覆
+            // 主流程
             OverlayAgent.scope.launch {
-                // 監控時間
-                kotlinx.coroutines.delay(100)
-                steps = mutableListOf("請稍候…")
-                withContext(Dispatchers.Main) {
-                    showStepOverlay()
-                    // 等候階段不需要勾選
-                    stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = false
+                // 先顯示「請稍候…」（勾選框隱藏）
+                withContext(Dispatchers.Main) { showPleaseWait() }
+
+                // 只有「監控擷取瞬間」把 overlay 完全隱藏，其餘時間顯示「請稍候…」
+                val screenInfo = runWithOverlayHiddenDuringMonitoring {
+                    getRealTimeScreenInfo()
                 }
 
-                // 呼叫 API 取得下一步
-                try {
-                    val serverMessage = withContext(Dispatchers.IO) {
-                        OverlayAgent.callAssistantApi(
-                            userMsg = initialUserMsg,
-                            goal = initialUserMsg,
-                            summaryText = fakeSummaryText(),
-                            timestampMs = System.currentTimeMillis()
-                        )
-                    }.trim()
+                // 呼叫後端取得下一步
+                val serverMessage = withContext(Dispatchers.IO) {
+                    OverlayAgent.callAssistantApi(
+                        userMsg = initialUserMsg,
+                        goal = initialUserMsg,
+                        summaryText = screenInfo,
+                        timestampMs = System.currentTimeMillis()
+                    )
+                }.trim()
 
-                    withContext(Dispatchers.Main) {
-                        if (serverMessage.contains("恭喜成功")) {
-                            steps = mutableListOf("🎉 恭喜成功！")
-                            updateStepText()
-                            showSuccessThenDismiss()
-                        } else {
-                            steps = mutableListOf(serverMessage.ifBlank { "請依畫面提示操作下一步" })
-                            updateStepText()
-                            // 進入可互動狀態 → 顯示勾選
-                            stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = true
-                        }
-                    }
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        steps = mutableListOf("發生錯誤：${e.message ?: "未知錯誤"}")
+                withContext(Dispatchers.Main) {
+                    if (serverMessage.contains("恭喜成功")) {
+                        steps = mutableListOf("🎉 恭喜成功！")
                         updateStepText()
-                        stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = false
-                        stepView?.postDelayed({ dismissOverlay() }, 1500)
+                        showSuccessThenDismiss()
+                    } else {
+                        steps = mutableListOf(serverMessage.ifBlank { "請依畫面提示操作下一步" })
+                        updateStepText()
+                        stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = true
                     }
+                    isBusy = false
                 }
             }
         }
-
 
         cancelButton.setOnClickListener {
             try {
@@ -132,30 +131,28 @@ class ChatDialogActivity : Activity() {
         }
     }
 
-    /** 先用假 summaryText（之後換成真監控） */
-    private fun fakeSummaryText(): String = """
-Captured elements: 20 (showing up to 20)
-• (no text)  [id=jp.naver.line.android:id/viewpager]  <androidx.viewpager.widget.ViewPager>  @(0,0,1080,2253)
-• "主頁分頁"  [id=jp.naver.line.android:id/bnb_button_clickable_area]  <android.view.View>  @(39,2187,231,2355)
-• "聊天選項 勾選 431個新項目"  [id=jp.naver.line.android:id/bnb_button_clickable_area]  <android.view.View>  @(309,2187,501,2355)
-• "LINE VOOM選項"  [id=jp.naver.line.android:id/bnb_button_clickable_area]  <android.view.View>  @(579,2187,771,2355)
-• "新聞選單"  [id=jp.naver.line.android:id/bnb_button_clickable_area]  <android.view.View>  @(849,2187,1041,2355)
-• (no text)  [id=jp.naver.line.android:id/home_tab_list_container]  <android.widget.ScrollView>  @(0,75,0,2253)
-• (no text)  [id=jp.naver.line.android:id/header]  <android.view.ViewGroup>  @(0,0,1080,237)
-• (no text)  [id=jp.naver.line.android:id/coordinator_layout]  <android.widget.ScrollView>  @(0,237,1080,2253)
-• (no text)  [id=jp.naver.line.android:id/voom_tab_header]  <android.view.ViewGroup>  @(1080,0,1080,237)
-• (no text)  [id=jp.naver.line.android:id/timeline_feed_view_pager]  <androidx.viewpager.widget.ViewPager>  @(1080,75,1080,2208)
-• "楊弘奕的個人圖片"  [id=jp.naver.line.android:id/home_tab_profile_toolbar]  <android.widget.FrameLayout>  @(0,237,0,529)
-• "搜尋"  [id=jp.naver.line.android:id/main_tab_search_bar]  <android.view.View>  @(-47,535,0,637)
-• "掃描行動條碼"  [id=jp.naver.line.android:id/main_tab_search_bar_scanner_icon]  <android.widget.ImageView>  @(-47,535,0,637)
-• (no text)  [id=jp.naver.line.android:id/home_tab_recycler_view]  <androidx.recyclerview.widget.RecyclerView>  @(0,670,0,2253)
-• (no text)  [id=jp.naver.line.android:id/keep_header_button]  <android.widget.LinearLayout>  @(-368,75,0,237)
-• (no text)  [id=jp.naver.line.android:id/notification_header_button]  <android.widget.LinearLayout>  @(-254,75,0,237)
-• (no text)  [id=jp.naver.line.android:id/add_friends_header_button]  <android.widget.LinearLayout>  @(-140,75,0,237)
-• (no text)  [id=jp.naver.line.android:id/settings_header_button]  <android.widget.LinearLayout>  @(-26,75,0,237)
-• "搜尋"  [id=jp.naver.line.android:id/main_tab_search_bar]  <android.view.View>  @(48,237,1032,259)
-• "掃描行動條碼"  [id=jp.naver.line.android:id/main_tab_search_bar_scanner_icon]  <android.widget.ImageView>  @(920,237,1032,259)
-""".trimIndent()
+    // ===== Overlay：顯示請稍候（勾選框隱藏）=====
+    private fun showPleaseWait() {
+        steps = mutableListOf("請稍候…")
+        showStepOverlay()
+        stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = false
+    }
+
+    /** 在「監控擷取」期間把 overlay 完全隱藏；其餘時間維持請稍候畫面 */
+    private suspend fun <T> runWithOverlayHiddenDuringMonitoring(block: suspend () -> T): T {
+        return try {
+            withContext(Dispatchers.Main) { stepView?.visibility = View.GONE }
+            block()
+        } finally {
+            withContext(Dispatchers.Main) {
+                // 回到「請稍候…」畫面（勾選框仍隱藏）
+                stepView?.visibility = View.VISIBLE
+                steps = mutableListOf("請稍候…")
+                updateStepText()
+                stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = false
+            }
+        }
+    }
 
     /** 顯示/更新頂部步驟（只顯示目前一步） */
     private fun showStepOverlay() {
@@ -170,7 +167,9 @@ Captured elements: 20 (showing up to 20)
                 else
                     WindowManager.LayoutParams.TYPE_PHONE,
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                        WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM,
                 PixelFormat.TRANSLUCENT
             ).apply {
                 gravity = Gravity.TOP
@@ -183,41 +182,42 @@ Captured elements: 20 (showing up to 20)
         updateStepText()
     }
 
-    /** 勾選後：帶第一次輸入 + 最新 summaryText 再 call；只有含「恭喜成功」才收尾 */
+    /** 勾選後：再次擷取監控 → call 後端 → 只有含「恭喜成功」才收尾 */
     private fun bindStepEvents() {
         val cb = stepView!!.findViewById<CheckBox>(R.id.btn_check)
         cb.isChecked = false
 
         cb.setOnCheckedChangeListener { _, isChecked ->
-            if (!isChecked) return@setOnCheckedChangeListener
-            if (isBusy) return@setOnCheckedChangeListener
+            if (!isChecked || isBusy) return@setOnCheckedChangeListener
             isBusy = true
-
             cb.isChecked = false
+
             val currentText = steps.firstOrNull().orEmpty().trim()
             if (currentText.contains("恭喜成功")) {
                 showSuccessThenDismiss()
                 isBusy = false
                 return@setOnCheckedChangeListener
             }
-            // 監控時間
-            flashHideOverlay(100L)
-            val tv = stepView?.findViewById<TextView>(R.id.tv_step)
-            val cb = stepView?.findViewById<CheckBox>(R.id.btn_check)
-            tv?.text = "請稍候…"
-            cb?.isVisible = false   // ← 把勾勾隱藏
+
+            // 進入請稍候狀態（勾選框隱藏）
+            showPleaseWait()
 
             OverlayAgent.scope.launch {
-                try {
-                    val nextMsg = withContext(Dispatchers.IO) {
-                        OverlayAgent.callAssistantApi(
-                            userMsg = initialUserMsg,                // 每次都帶第一次的輸入
-                            goal = initialUserMsg,
-                            summaryText = fakeSummaryText(),         // TODO: 換成實際監控
-                            timestampMs = System.currentTimeMillis()
-                        )
-                    }.trim()
+                // 只有監控擷取期間把 overlay 隱藏
+                val screenInfo = runWithOverlayHiddenDuringMonitoring {
+                    getRealTimeScreenInfo()
+                }
 
+                val nextMsg = withContext(Dispatchers.IO) {
+                    OverlayAgent.callAssistantApi(
+                        userMsg = initialUserMsg,
+                        goal = initialUserMsg,
+                        summaryText = screenInfo,
+                        timestampMs = System.currentTimeMillis()
+                    )
+                }.trim()
+
+                withContext(Dispatchers.Main) {
                     if (nextMsg.contains("恭喜成功")) {
                         steps = mutableListOf("🎉 恭喜成功！")
                         updateStepText()
@@ -225,24 +225,20 @@ Captured elements: 20 (showing up to 20)
                     } else {
                         steps = mutableListOf(nextMsg.ifBlank { "請依畫面提示操作下一步" })
                         updateStepText()
+                        stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = true
                     }
-                } catch (e: Exception) {
-                    Toast.makeText(applicationContext, "取得下一步失敗：${e.message ?: "未知錯誤"}", Toast.LENGTH_SHORT).show()
-                    updateStepText() // 還原
-                } finally {
                     isBusy = false
                 }
             }
         }
-        val closeBtn = stepView!!.findViewById<ImageButton>(R.id.btn_close)
-        closeBtn.setOnClickListener {
+
+        stepView!!.findViewById<ImageButton>(R.id.btn_close).setOnClickListener {
             steps = mutableListOf("已關閉任務，有問題請再次點擊泡泡詢問喔！")
-            updateStepText() // 先更新文字
-            // 這次不需要打勾 → 隱藏勾選框
+            updateStepText()
             stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = false
-            // 1.2 秒後關掉 overlay
             stepView?.postDelayed({ dismissOverlay() }, 1200)
         }
+
         // 上滑收起（可選）
         stepView!!.setOnTouchListener(object : View.OnTouchListener {
             private var downY = 0f
@@ -256,22 +252,20 @@ Captured elements: 20 (showing up to 20)
             }
         })
     }
-    private fun flashHideOverlay(durationMs: Long = 100L) {
-        stepView?.let { v ->
-            v.visibility = View.GONE
-            v.postDelayed({ v.visibility = View.VISIBLE }, durationMs)
-        }
-    }
+
     private fun updateStepText() {
         val tv = stepView?.findViewById<TextView>(R.id.tv_step) ?: return
-        tv.text = steps.firstOrNull().orEmpty()
-        stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = true
+        val text = steps.firstOrNull().orEmpty()
+        tv.text = text
+        val showCheckbox = !(text.contains("恭喜成功") || text.contains("已關閉任務") || text.contains("請稍候"))
+        stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = showCheckbox
     }
 
     private fun showSuccessThenDismiss() {
         val tv = stepView?.findViewById<TextView>(R.id.tv_step) ?: return
         tv.text = "🎉 恭喜成功！"
         stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = false
+        stepView?.visibility = View.VISIBLE
         stepView?.postDelayed({ dismissOverlay() }, 1200)
     }
 
@@ -283,4 +277,52 @@ Captured elements: 20 (showing up to 20)
     }
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density + 0.5f).toInt()
+
+    // ===== 擷取螢幕資訊（監控邏輯集中於此；外部已保證擷取時 overlay 會隱藏）=====
+    private fun getRealTimeScreenInfo(): String {
+        // 確保監控服務啟用（只在擷取過程）
+        try { ScreenMonitor.activateMonitoring() } catch (_: Throwable) {}
+
+        // 先嘗試強制刷新（最快）
+        try {
+            val forced = ScreenMonitor.forceRefreshScreenInfo()
+            if (forced.isNotBlank() && !forced.contains("Waiting for elements")) {
+                try { ScreenMonitor.deactivateMonitoring() } catch (_: Throwable) {}
+                return forced
+            }
+        } catch (_: Throwable) {}
+
+        // HTTP 方式
+        val url = "http://127.0.0.1:${ScreenInfoServer.DEFAULT_PORT}/screen-info"
+        val request = Request.Builder().url(url).build()
+        try {
+            httpClient.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val jsonString = response.body?.string().orEmpty()
+                    val jsonObject = JSONObject(jsonString)
+                    var summaryText = jsonObject.optString("summaryText", "")
+                    if (summaryText.contains("Waiting for elements")) {
+                        // 再做一次強制刷新，若成功就用強刷結果
+                        val forced2 = try { ScreenMonitor.forceRefreshScreenInfo() } catch (_: Throwable) { "" }
+                        if (forced2.isNotBlank() && !forced2.contains("Waiting for elements")) {
+                            summaryText = forced2
+                        }
+                    }
+                    try { ScreenMonitor.deactivateMonitoring() } catch (_: Throwable) {}
+                    if (summaryText.isNotBlank()) return summaryText
+                } else {
+                    throw IOException("HTTP ${response.code}")
+                }
+            }
+        } catch (_: Exception) {
+            // 直接向監控服務拉一次最新內容作為備援
+            val direct = try { ScreenMonitor.getLatestScreenInfo() } catch (_: Throwable) { "" }
+            try { ScreenMonitor.deactivateMonitoring() } catch (_: Throwable) {}
+            if (direct.isNotBlank()) return direct
+        }
+
+        // 最後兜底
+        try { ScreenMonitor.deactivateMonitoring() } catch (_: Throwable) {}
+        return "無法獲取螢幕資訊"
+    }
 }
