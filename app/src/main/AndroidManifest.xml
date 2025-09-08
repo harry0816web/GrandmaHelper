@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- 權限 -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -14,6 +17,8 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.BubbleAssistant"
         android:networkSecurityConfig="@xml/network_security_config">
+
+        <!-- 主畫面 -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -21,10 +26,25 @@
             android:theme="@style/Theme.BubbleAssistant">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- 教學頁面 -->
+        <activity
+            android:name=".TutorialActivity"
+            android:exported="true"
+            android:label="使用教學"
+            android:theme="@style/Theme.BubbleAssistant" />
+
+        <!-- 常用功能頁面 -->
+        <activity
+            android:name=".FeaturesActivity"
+            android:exported="true"
+            android:label="常用功能"
+            android:theme="@style/Theme.BubbleAssistant" />
+
+        <!-- 對話泡泡視窗 -->
         <activity
             android:name=".ChatDialogActivity"
             android:theme="@style/BubbleDialogTheme"
@@ -32,10 +52,14 @@
             android:launchMode="singleTask"
             android:taskAffinity=""
             android:exported="true"/>
+
+        <!-- 泡泡服務 -->
         <service
             android:name=".BubbleService"
             android:enabled="true"
             android:exported="false" />
+
+        <!-- 螢幕監聽服務 (無障礙) -->
         <service
             android:name=".ScreenMonitor"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
@@ -48,6 +72,7 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/accessibility_service_config" />
         </service>
+
     </application>
 
 </manifest>

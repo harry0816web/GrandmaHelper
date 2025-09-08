@@ -9,11 +9,11 @@
     <LinearLayout
         android:id="@+id/dialog_box"
         android:layout_width="310dp"
-        android:layout_height="198dp"
+        android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:background="@drawable/dialog_bg"
-        android:elevation="10dp"
         android:baselineAligned="false"
+        android:elevation="10dp"
         android:gravity="center"
         android:orientation="vertical"
         android:padding="7dp">
@@ -29,8 +29,8 @@
                 android:id="@+id/imageView"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:src="@drawable/bubble"
-                android:contentDescription="logo" />
+                android:contentDescription="logo"
+                android:src="@drawable/bubble" />
 
             <TextView
                 android:id="@+id/title_text"
@@ -55,6 +55,32 @@
 
         <!-- 按鈕列 -->
 
+        <Button
+            android:id="@+id/shortcut1"
+            android:layout_width="287dp"
+            android:layout_height="30dp"
+            android:layout_marginTop="3dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/text_bg"
+            android:paddingTop="3dp"
+            android:text="傳訊息給兒子" />
+
+        <Button
+            android:id="@+id/shortcut2"
+            android:layout_width="287dp"
+            android:layout_height="30dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/text_bg"
+            android:text="打電話給孫女" />
+
+        <Button
+            android:id="@+id/shortcut3"
+            android:layout_width="287dp"
+            android:layout_height="30dp"
+            android:layout_marginBottom="5dp"
+            android:background="@drawable/text_bg"
+            android:text="拍照並傳到家庭群組" />
+
         <EditText
             android:id="@+id/input_message"
             android:layout_width="287dp"
@@ -77,31 +103,23 @@
             android:gravity="center|end"
             android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/response_text"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_gravity="bottom"
-                android:layout_marginTop="6dp"
-                android:layout_weight="1"
-                android:text=""
-                android:textColor="#666666" />
-
             <Button
                 android:id="@+id/send_button"
-                android:layout_width="58dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="@drawable/button_bg"
                 android:text="送出"
+                android:textAppearance="@style/TextAppearance.AppCompat.Medium"
                 android:textColor="#FFFFFF" />
 
             <Button
                 android:id="@+id/cancel_button"
-                android:layout_width="58dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="24dp"
                 android:background="@drawable/button_bg"
                 android:text="取消"
+                android:textAppearance="@style/TextAppearance.AppCompat.Medium"
                 android:textColor="#FFFFFF" />
 
         </LinearLayout>
