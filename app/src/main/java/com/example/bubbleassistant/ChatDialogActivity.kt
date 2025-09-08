@@ -30,17 +30,20 @@ class ChatDialogActivity : Activity() {
     private var wm: WindowManager? = null
     private var stepView: View? = null
     private var stepLp: WindowManager.LayoutParams? = null
-    private var steps: MutableList<String> = mutableListOf() // 只放一行
+    private var steps: MutableList<String> = mutableListOf()
     private var initialUserMsg: String = ""
     private var isBusy: Boolean = false
 
-    // HTTP client for fetching screen info
+    // HTTP client
     private val httpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .connectTimeout(5, TimeUnit.SECONDS)
             .readTimeout(10, TimeUnit.SECONDS)
             .build()
     }
+
+    // === TTS Manager ===
+    private lateinit var ttsManager: TextToSpeechManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,11 +57,14 @@ class ChatDialogActivity : Activity() {
         // 綁定
         editText = findViewById(R.id.input_message)
         sendButton = findViewById(R.id.send_button)
+        cancelButton = findViewById(R.id.cancel_button)
         rootView = findViewById(R.id.dialog_root)
         dialogBox = findViewById(R.id.dialog_box)
-        val cancelButton: Button = findViewById(R.id.cancel_button)
 
         wm = applicationContext.getSystemService(WINDOW_SERVICE) as WindowManager
+
+        // 初始化 TTS
+        ttsManager = TextToSpeechManager.getInstance(this)
 
         // 送出
         sendButton.setOnClickListener {
@@ -68,7 +74,8 @@ class ChatDialogActivity : Activity() {
             initialUserMsg = message
             sendButton.isEnabled = false
             OverlayAgent.taskActive = true
-            // 收鍵盤並關閉對話框（不讓它擋畫面）
+
+            // 收鍵盤並關閉對話框
             try {
                 val imm = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
                 imm.hideSoftInputFromWindow(editText.windowToken, 0)
@@ -77,15 +84,12 @@ class ChatDialogActivity : Activity() {
 
             // 主流程
             OverlayAgent.scope.launch {
-                // 先顯示「請稍候…」（勾選框隱藏）
                 withContext(Dispatchers.Main) { showPleaseWait() }
 
-                // 只有「監控擷取瞬間」把 overlay 完全隱藏，其餘時間顯示「請稍候…」
                 val screenInfo = runWithOverlayHiddenDuringMonitoring {
                     getRealTimeScreenInfo()
                 }
 
-                // 呼叫後端取得下一步
                 val serverMessage = withContext(Dispatchers.IO) {
                     OverlayAgent.callAssistantApi(
                         userMsg = initialUserMsg,
@@ -131,21 +135,19 @@ class ChatDialogActivity : Activity() {
         }
     }
 
-    // ===== Overlay：顯示請稍候（勾選框隱藏）=====
+    // ===== Overlay：顯示請稍候 =====
     private fun showPleaseWait() {
         steps = mutableListOf("請稍候…")
         showStepOverlay()
         stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = false
     }
 
-    /** 在「監控擷取」期間把 overlay 完全隱藏；其餘時間維持請稍候畫面 */
     private suspend fun <T> runWithOverlayHiddenDuringMonitoring(block: suspend () -> T): T {
         return try {
             withContext(Dispatchers.Main) { stepView?.visibility = View.GONE }
             block()
         } finally {
             withContext(Dispatchers.Main) {
-                // 回到「請稍候…」畫面（勾選框仍隱藏）
                 stepView?.visibility = View.VISIBLE
                 steps = mutableListOf("請稍候…")
                 updateStepText()
@@ -154,7 +156,6 @@ class ChatDialogActivity : Activity() {
         }
     }
 
-    /** 顯示/更新頂部步驟（只顯示目前一步） */
     private fun showStepOverlay() {
         if (steps.isEmpty()) return
         if (stepView == null) {
@@ -182,7 +183,6 @@ class ChatDialogActivity : Activity() {
         updateStepText()
     }
 
-    /** 勾選後：再次擷取監控 → call 後端 → 只有含「恭喜成功」才收尾 */
     private fun bindStepEvents() {
         val cb = stepView!!.findViewById<CheckBox>(R.id.btn_check)
         cb.isChecked = false
@@ -199,11 +199,9 @@ class ChatDialogActivity : Activity() {
                 return@setOnCheckedChangeListener
             }
 
-            // 進入請稍候狀態（勾選框隱藏）
             showPleaseWait()
 
             OverlayAgent.scope.launch {
-                // 只有監控擷取期間把 overlay 隱藏
                 val screenInfo = runWithOverlayHiddenDuringMonitoring {
                     getRealTimeScreenInfo()
                 }
@@ -236,26 +234,41 @@ class ChatDialogActivity : Activity() {
             steps = mutableListOf("已關閉任務，有問題請再次點擊泡泡詢問喔！")
             updateStepText()
             stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = false
-            stepView?.postDelayed({ dismissOverlay()
-                OverlayAgent.taskActive = false}, 1200)
+            stepView?.postDelayed({
+                dismissOverlay()
+                OverlayAgent.taskActive = false
+            }, 1200)
         }
     }
 
+    // === 更新文字並同時播報 ===
     private fun updateStepText() {
         val tv = stepView?.findViewById<TextView>(R.id.tv_step) ?: return
         val text = steps.firstOrNull().orEmpty()
         tv.text = text
         val showCheckbox = !(text.contains("恭喜成功") || text.contains("已關閉任務") || text.contains("請稍候"))
         stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = showCheckbox
+
+        // --- 新增這段：每次步驟更新就播語音 ---
+        if (text.isNotBlank()) {
+            TextToSpeechManager.getInstance(applicationContext).speak(text)
+        }
+    }
+
+    private fun speakMessage(text: String) {
+        val uniqueId = "msg_${System.currentTimeMillis()}"
+        ttsManager.speak(text, uniqueId)
     }
 
     private fun showSuccessThenDismiss() {
         val tv = stepView?.findViewById<TextView>(R.id.tv_step) ?: return
-        tv.text = "🎉 恭喜成功！"
+        tv.text = "恭喜成功！"
         stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = false
         stepView?.visibility = View.VISIBLE
-        stepView?.postDelayed({ dismissOverlay()
-            OverlayAgent.taskActive = false}, 1200)
+        stepView?.postDelayed({
+            dismissOverlay()
+            OverlayAgent.taskActive = false
+        }, 1200)
     }
 
     private fun dismissOverlay() {
@@ -267,12 +280,10 @@ class ChatDialogActivity : Activity() {
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density + 0.5f).toInt()
 
-    // ===== 擷取螢幕資訊（監控邏輯集中於此；外部已保證擷取時 overlay 會隱藏）=====
+    // ===== 擷取螢幕資訊 =====
     private fun getRealTimeScreenInfo(): String {
-        // 確保監控服務啟用（只在擷取過程）
         try { ScreenMonitor.activateMonitoring() } catch (_: Throwable) {}
 
-        // 先嘗試強制刷新（最快）
         try {
             val forced = ScreenMonitor.forceRefreshScreenInfo()
             if (forced.isNotBlank() && !forced.contains("Waiting for elements")) {
@@ -281,7 +292,6 @@ class ChatDialogActivity : Activity() {
             }
         } catch (_: Throwable) {}
 
-        // HTTP 方式
         val url = "http://127.0.0.1:${ScreenInfoServer.DEFAULT_PORT}/screen-info"
         val request = Request.Builder().url(url).build()
         try {
@@ -291,7 +301,6 @@ class ChatDialogActivity : Activity() {
                     val jsonObject = JSONObject(jsonString)
                     var summaryText = jsonObject.optString("summaryText", "")
                     if (summaryText.contains("Waiting for elements")) {
-                        // 再做一次強制刷新，若成功就用強刷結果
                         val forced2 = try { ScreenMonitor.forceRefreshScreenInfo() } catch (_: Throwable) { "" }
                         if (forced2.isNotBlank() && !forced2.contains("Waiting for elements")) {
                             summaryText = forced2
@@ -304,14 +313,16 @@ class ChatDialogActivity : Activity() {
                 }
             }
         } catch (_: Exception) {
-            // 直接向監控服務拉一次最新內容作為備援
             val direct = try { ScreenMonitor.getLatestScreenInfo() } catch (_: Throwable) { "" }
             try { ScreenMonitor.deactivateMonitoring() } catch (_: Throwable) {}
             if (direct.isNotBlank()) return direct
         }
 
-        // 最後兜底
         try { ScreenMonitor.deactivateMonitoring() } catch (_: Throwable) {}
         return "無法獲取螢幕資訊"
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
     }
 }
