@@ -28,7 +28,7 @@ class ChatDialogActivity : Activity() {
     private lateinit var dialogBox: View
     private lateinit var rootView: View
 
-    // ⬇️ 新增：三顆快捷按鈕參考
+    // 三顆快捷按鈕
     private lateinit var shortcut1Button: Button
     private lateinit var shortcut2Button: Button
     private lateinit var shortcut3Button: Button
@@ -52,6 +52,12 @@ class ChatDialogActivity : Activity() {
     // === TTS Manager ===
     private lateinit var ttsManager: TextToSpeechManager
 
+    // ==== 拖曳狀態 (新增) ====
+    private var dragStartY: Int = 0
+    private var dragTouchStartY: Float = 0f
+    private var isDragging: Boolean = false
+    private val touchSlop: Int by lazy { ViewConfiguration.get(this).scaledTouchSlop }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -71,7 +77,7 @@ class ChatDialogActivity : Activity() {
         rootView = findViewById(R.id.dialog_root)
         dialogBox = findViewById(R.id.dialog_box)
 
-        // ⬇️ 綁定三顆快捷鍵按鈕，並讓它們走跟「送出」一樣的流程
+        // 三顆快捷鍵 → 等同送出流程
         shortcut1Button = findViewById(R.id.shortcut1)
         shortcut2Button = findViewById(R.id.shortcut2)
         shortcut3Button = findViewById(R.id.shortcut3)
@@ -162,10 +168,9 @@ class ChatDialogActivity : Activity() {
         applyShortcutTexts()
     }
 
-    // === 讓快捷鍵行為等同按「送出」 ===
+    // 讓快捷鍵行為等同按「送出」
     private fun handleShortcutClick(text: String) {
         if (text.isBlank() || ::sendButton.isInitialized.not() || isBusy) return
-        // 把文字放進輸入框，然後直接觸發送出
         editText.setText(text)
         sendButton.performClick()
     }
@@ -211,6 +216,7 @@ class ChatDialogActivity : Activity() {
             }
             wm?.addView(stepView, stepLp)
             bindStepEvents()
+            enableOverlayDrag() // ← 新增：啟用拖曳
         }
         updateStepText()
     }
@@ -272,6 +278,59 @@ class ChatDialogActivity : Activity() {
         }
     }
 
+    // === 新增：讓 overlay 可拖曳（主要是拖動 Y；X 也支援，但你的寬是 MATCH_PARENT，所以看不太出來） ===
+    private fun enableOverlayDrag() {
+        val sv = stepView ?: return
+
+        fun hit(view: View?, rawX: Float, rawY: Float): Boolean {
+            if (view == null || view.visibility != View.VISIBLE) return false
+            val r = Rect()
+            view.getGlobalVisibleRect(r)
+            return r.contains(rawX.toInt(), rawY.toInt())
+        }
+
+        sv.setOnTouchListener { _, event ->
+            // 避免和「勾選 / 關閉」衝突：如果按在它們上面就不攔截
+            val check = stepView?.findViewById<CheckBox>(R.id.btn_check)
+            val close = stepView?.findViewById<ImageButton>(R.id.btn_close)
+            if (hit(check, event.rawX, event.rawY) || hit(close, event.rawX, event.rawY)) {
+                return@setOnTouchListener false
+            }
+
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    isDragging = false
+                    dragTouchStartY = event.rawY
+                    dragStartY = stepLp?.y ?: 0
+                    // 開始追蹤
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dy = (event.rawY - dragTouchStartY).toInt()
+                    if (!isDragging && kotlin.math.abs(dy) > touchSlop) {
+                        isDragging = true
+                    }
+                    if (isDragging) {
+                        val displayH = resources.displayMetrics.heightPixels
+                        val viewH = sv.height.takeIf { it > 0 } ?: 200
+                        val maxY = (displayH - viewH).coerceAtLeast(0)
+                        val newY = (dragStartY + dy).coerceIn(0, maxY)
+                        stepLp?.y = newY
+                        try { wm?.updateViewLayout(stepView, stepLp) } catch (_: Exception) {}
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    val wasDragging = isDragging
+                    isDragging = false
+                    // 若剛拖曳過就吃掉事件，避免誤觸裡面的點擊
+                    wasDragging
+                }
+                else -> false
+            }
+        }
+    }
+
     // === 更新文字並同時播報 ===
     private fun updateStepText() {
         val tv = stepView?.findViewById<TextView>(R.id.tv_step) ?: return
@@ -280,7 +339,6 @@ class ChatDialogActivity : Activity() {
         val showCheckbox = !(text.contains("恭喜成功") || text.contains("已關閉任務") || text.contains("請稍候"))
         stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = showCheckbox
 
-        // 每次步驟更新就播語音
         if (text.isNotBlank()) {
             TextToSpeechManager.getInstance(applicationContext).speak(text)
         }
