@@ -28,6 +28,11 @@ class ChatDialogActivity : Activity() {
     private lateinit var dialogBox: View
     private lateinit var rootView: View
 
+    // ⬇️ 新增：三顆快捷按鈕參考
+    private lateinit var shortcut1Button: Button
+    private lateinit var shortcut2Button: Button
+    private lateinit var shortcut3Button: Button
+
     // Overlay
     private var wm: WindowManager? = null
     private var stepView: View? = null
@@ -46,6 +51,7 @@ class ChatDialogActivity : Activity() {
 
     // === TTS Manager ===
     private lateinit var ttsManager: TextToSpeechManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -54,13 +60,24 @@ class ChatDialogActivity : Activity() {
         window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         window.setGravity(Gravity.CENTER)
         setContentView(R.layout.dialog_chat)
+
+        // 先套用三個快捷文字
         applyShortcutTexts()
+
         // 綁定
         editText = findViewById(R.id.input_message)
         sendButton = findViewById(R.id.send_button)
         cancelButton = findViewById(R.id.cancel_button)
         rootView = findViewById(R.id.dialog_root)
         dialogBox = findViewById(R.id.dialog_box)
+
+        // ⬇️ 綁定三顆快捷鍵按鈕，並讓它們走跟「送出」一樣的流程
+        shortcut1Button = findViewById(R.id.shortcut1)
+        shortcut2Button = findViewById(R.id.shortcut2)
+        shortcut3Button = findViewById(R.id.shortcut3)
+        shortcut1Button.setOnClickListener { handleShortcutClick(shortcut1Button.text?.toString().orEmpty()) }
+        shortcut2Button.setOnClickListener { handleShortcutClick(shortcut2Button.text?.toString().orEmpty()) }
+        shortcut3Button.setOnClickListener { handleShortcutClick(shortcut3Button.text?.toString().orEmpty()) }
 
         wm = applicationContext.getSystemService(WINDOW_SERVICE) as WindowManager
 
@@ -139,10 +156,20 @@ class ChatDialogActivity : Activity() {
             false
         }
     }
+
     override fun onResume() {
         super.onResume()
         applyShortcutTexts()
     }
+
+    // === 讓快捷鍵行為等同按「送出」 ===
+    private fun handleShortcutClick(text: String) {
+        if (text.isBlank() || ::sendButton.isInitialized.not() || isBusy) return
+        // 把文字放進輸入框，然後直接觸發送出
+        editText.setText(text)
+        sendButton.performClick()
+    }
+
     // ===== Overlay：顯示請稍候 =====
     private fun showPleaseWait() {
         steps = mutableListOf("請稍候…")
@@ -325,6 +352,7 @@ class ChatDialogActivity : Activity() {
         try { ScreenMonitor.deactivateMonitoring() } catch (_: Throwable) {}
         return "無法獲取螢幕資訊"
     }
+
     private fun applyShortcutTexts() {
         val btn1 = findViewById<Button>(R.id.shortcut1)
         val btn2 = findViewById<Button>(R.id.shortcut2)
@@ -334,7 +362,6 @@ class ChatDialogActivity : Activity() {
 
         fun savedOrDefault(key: String, def: String): String {
             val saved = p.getString(key, null)
-            // 讀到 null 或空白 → 用 XML 的原始文字
             return if (saved.isNullOrBlank()) def else saved
         }
 
