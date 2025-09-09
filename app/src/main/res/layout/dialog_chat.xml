@@ -63,6 +63,7 @@
             android:layout_marginBottom="8dp"
             android:background="@drawable/text_bg"
             android:paddingTop="3dp"
+            android:textColor="#333333"
             android:text="傳訊息給兒子" />
 
         <Button
@@ -71,6 +72,7 @@
             android:layout_height="30dp"
             android:layout_marginBottom="8dp"
             android:background="@drawable/text_bg"
+            android:textColor="#333333"
             android:text="打電話給孫女" />
 
         <Button
@@ -79,6 +81,7 @@
             android:layout_height="30dp"
             android:layout_marginBottom="5dp"
             android:background="@drawable/text_bg"
+            android:textColor="#333333"
             android:text="拍照並傳到家庭群組" />
 
         <EditText

@@ -36,7 +36,7 @@ fun SettingsScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Bubble Assistant")
+            Text("開啟詢問泡泡")
             Switch(checked = bubbleOn, onCheckedChange = onBubbleToggle)
         }
 
@@ -46,7 +46,7 @@ fun SettingsScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("語音開關")
+            Text("開啟語音模式")
             Switch(checked = voiceOn, onCheckedChange = onVoiceToggle)
         }
 
@@ -59,7 +59,7 @@ fun SettingsScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("常用功能")
+            Text("常用詢問設定")
             Icon(Icons.Default.KeyboardArrowRight, contentDescription = null)
         }
 
@@ -72,7 +72,7 @@ fun SettingsScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("使用教學")
+            Text("App 使用教學")
             Icon(Icons.Default.KeyboardArrowRight, contentDescription = null)
         }
 

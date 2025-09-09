@@ -17,6 +17,8 @@ import okhttp3.Request
 import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import android.content.Context
+import android.widget.Button
 
 class ChatDialogActivity : Activity() {
 
@@ -44,7 +46,6 @@ class ChatDialogActivity : Activity() {
 
     // === TTS Manager ===
     private lateinit var ttsManager: TextToSpeechManager
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -53,7 +54,7 @@ class ChatDialogActivity : Activity() {
         window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         window.setGravity(Gravity.CENTER)
         setContentView(R.layout.dialog_chat)
-
+        applyShortcutTexts()
         // 綁定
         editText = findViewById(R.id.input_message)
         sendButton = findViewById(R.id.send_button)
@@ -138,7 +139,10 @@ class ChatDialogActivity : Activity() {
             false
         }
     }
-
+    override fun onResume() {
+        super.onResume()
+        applyShortcutTexts()
+    }
     // ===== Overlay：顯示請稍候 =====
     private fun showPleaseWait() {
         steps = mutableListOf("請稍候…")
@@ -237,7 +241,7 @@ class ChatDialogActivity : Activity() {
             stepView?.postDelayed({
                 dismissOverlay()
                 OverlayAgent.taskActive = false
-            }, 1200)
+            }, 1500)
         }
     }
 
@@ -320,6 +324,23 @@ class ChatDialogActivity : Activity() {
 
         try { ScreenMonitor.deactivateMonitoring() } catch (_: Throwable) {}
         return "無法獲取螢幕資訊"
+    }
+    private fun applyShortcutTexts() {
+        val btn1 = findViewById<Button>(R.id.shortcut1)
+        val btn2 = findViewById<Button>(R.id.shortcut2)
+        val btn3 = findViewById<Button>(R.id.shortcut3)
+
+        val p = getSharedPreferences("shortcut_prefs", Context.MODE_PRIVATE)
+
+        fun savedOrDefault(key: String, def: String): String {
+            val saved = p.getString(key, null)
+            // 讀到 null 或空白 → 用 XML 的原始文字
+            return if (saved.isNullOrBlank()) def else saved
+        }
+
+        btn1.text = savedOrDefault("shortcut_1", btn1.text?.toString().orEmpty())
+        btn2.text = savedOrDefault("shortcut_2", btn2.text?.toString().orEmpty())
+        btn3.text = savedOrDefault("shortcut_3", btn3.text?.toString().orEmpty())
     }
 
     override fun onDestroy() {
