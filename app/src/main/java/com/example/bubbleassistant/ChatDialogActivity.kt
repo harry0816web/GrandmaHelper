@@ -84,12 +84,15 @@ class ChatDialogActivity : Activity() {
 
             // 主流程
             OverlayAgent.scope.launch {
-                withContext(Dispatchers.Main) { showPleaseWait() }
-
+                // 1) 先監控（overlay 隱藏中）
                 val screenInfo = runWithOverlayHiddenDuringMonitoring {
                     getRealTimeScreenInfo()
                 }
 
+                // 2) 監控完成後，立刻顯示「請稍候…」
+                withContext(Dispatchers.Main) { showPleaseWait() }
+
+                // 3) 再呼叫 API
                 val serverMessage = withContext(Dispatchers.IO) {
                     OverlayAgent.callAssistantApi(
                         userMsg = initialUserMsg,
@@ -99,6 +102,7 @@ class ChatDialogActivity : Activity() {
                     )
                 }.trim()
 
+                // 4) 收到回覆後更新 overlay
                 withContext(Dispatchers.Main) {
                     if (serverMessage.contains("恭喜成功")) {
                         steps = mutableListOf("🎉 恭喜成功！")
@@ -139,20 +143,17 @@ class ChatDialogActivity : Activity() {
     private fun showPleaseWait() {
         steps = mutableListOf("請稍候…")
         showStepOverlay()
+        stepView?.visibility = View.VISIBLE
         stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = false
     }
 
+    // 監控期間只把 overlay 隱藏；結束後不自動改回來，讓呼叫端決定何時顯示
     private suspend fun <T> runWithOverlayHiddenDuringMonitoring(block: suspend () -> T): T {
         return try {
             withContext(Dispatchers.Main) { stepView?.visibility = View.GONE }
             block()
         } finally {
-            withContext(Dispatchers.Main) {
-                stepView?.visibility = View.VISIBLE
-                steps = mutableListOf("請稍候…")
-                updateStepText()
-                stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = false
-            }
+            // 不在這裡自動顯示或改文字
         }
     }
 
@@ -198,13 +199,12 @@ class ChatDialogActivity : Activity() {
                 isBusy = false
                 return@setOnCheckedChangeListener
             }
-
-            showPleaseWait()
-
             OverlayAgent.scope.launch {
                 val screenInfo = runWithOverlayHiddenDuringMonitoring {
                     getRealTimeScreenInfo()
                 }
+
+                withContext(Dispatchers.Main) { showPleaseWait() }
 
                 val nextMsg = withContext(Dispatchers.IO) {
                     OverlayAgent.callAssistantApi(
@@ -217,7 +217,7 @@ class ChatDialogActivity : Activity() {
 
                 withContext(Dispatchers.Main) {
                     if (nextMsg.contains("恭喜成功")) {
-                        steps = mutableListOf("🎉 恭喜成功！")
+                        steps = mutableListOf("恭喜成功！")
                         updateStepText()
                         showSuccessThenDismiss()
                     } else {
@@ -249,7 +249,7 @@ class ChatDialogActivity : Activity() {
         val showCheckbox = !(text.contains("恭喜成功") || text.contains("已關閉任務") || text.contains("請稍候"))
         stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = showCheckbox
 
-        // --- 新增這段：每次步驟更新就播語音 ---
+        // 每次步驟更新就播語音
         if (text.isNotBlank()) {
             TextToSpeechManager.getInstance(applicationContext).speak(text)
         }
