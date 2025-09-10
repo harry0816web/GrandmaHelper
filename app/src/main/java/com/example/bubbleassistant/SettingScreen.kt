@@ -15,7 +15,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
-
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TextField
 @Composable
 fun SettingsScreen(
     modifier: Modifier = Modifier,
@@ -29,71 +30,50 @@ fun SettingsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .background(Color(0xFFE2F4F3)) // 整體背景
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Bubble Assistant 開關
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("開啟詢問泡泡")
-            Switch(checked = bubbleOn, onCheckedChange = onBubbleToggle)
-        }
+        Text(
+            text = "Grandma Helper",
+            style = MaterialTheme.typography.headlineLarge,
+            color = Color.Black
+        )
 
+        // Bubble Assistant 開關
+        SettingItemRow(
+            title = "開啟詢問泡泡",
+            checked = bubbleOn,
+            onCheckedChange = onBubbleToggle
+        )
+
+        // 語音開關
         val context = LocalContext.current
         val ttsManager = remember { TextToSpeechManager.getInstance(context) }
         LaunchedEffect(voiceOn) {
             ttsManager.setVoiceEnabled(voiceOn)
         }
-        // 語音開關
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("開啟語音模式")
-            Switch(
-                checked = voiceOn,
-                onCheckedChange = { enabled ->
-                    onVoiceToggle(enabled)   // 更新 UI 狀態
-                    ttsManager.setVoiceEnabled(enabled) // 連動到 TTS 單例
-                }
-            )
-        }
+        SettingItemRow(
+            title = "開啟語音模式",
+            checked = voiceOn,
+            onCheckedChange = {
+                onVoiceToggle(it)
+                ttsManager.setVoiceEnabled(it)
+            }
+        )
 
         // 常用功能
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onNavigateFeatures() }
-                .padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("常用詢問設定")
-            Icon(Icons.Default.KeyboardArrowRight, contentDescription = null)
-        }
+        SettingNavRow(title = "常用詢問設定", onClick = onNavigateFeatures)
 
         // 使用教學
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onNavigateTutorial() }
-                .padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("App 使用教學")
-            Icon(Icons.Default.KeyboardArrowRight, contentDescription = null)
-        }
+        SettingNavRow(title = "App 使用教學", onClick = onNavigateTutorial)
 
         // 早安圖 - 可展開卡片
         var morningCardExpanded by remember { mutableStateOf(false) }
         Card(
             modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White)
         ) {
             Column(
                 modifier = Modifier
@@ -108,10 +88,11 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("每日一張早安圖", style = MaterialTheme.typography.titleMedium)
+                    Text("每日一張早安圖", style = MaterialTheme.typography.titleMedium, color = Color.Black)
                     Icon(
                         imageVector = if (morningCardExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = if (morningCardExpanded) "收起" else "展開"
+                        contentDescription = if (morningCardExpanded) "收起" else "展開",
+                        tint = Color(0xFF42A09D)
                     )
                 }
 
@@ -119,7 +100,6 @@ fun SettingsScreen(
                 if (morningCardExpanded) {
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // 使用者輸入的早安圖描述
                     var prompt by rememberSaveable { mutableStateOf("") }
 
                     Column(
@@ -128,16 +108,15 @@ fun SettingsScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(200.dp)
-                                .background(Color.LightGray),
+                                .size(300.dp)
+                                .background(Color(0xFFE2F4F3)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("空白圖片")
+                            Text("空白圖片", color = Color.Gray)
                         }
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // 左：輸入框，右：傳送按鈕
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
@@ -145,27 +124,76 @@ fun SettingsScreen(
                             TextField(
                                 value = prompt,
                                 onValueChange = { prompt = it },
+                                placeholder = { Text("想要生成什麼樣的早安圖呢") },
+                                singleLine = true,
                                 modifier = Modifier
                                     .weight(1f)
                                     .heightIn(min = 56.dp),
-                                placeholder = { Text("想要生成什麼樣的早安圖呢") },
-                                singleLine = true
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color.White,
+                                    unfocusedContainerColor = Color.White,
+                                    focusedIndicatorColor = Color(0xFF42A09D),
+                                    unfocusedIndicatorColor = Color.LightGray,
+                                    cursorColor = Color(0xFF42A09D),
+                                    focusedTextColor = Color.Black,
+                                    unfocusedTextColor = Color.Black,
+                                    focusedPlaceholderColor = Color.Gray,
+                                    unfocusedPlaceholderColor = Color.Gray
+                                )
                             )
 
                             Spacer(modifier = Modifier.width(8.dp))
 
                             Button(
-                                onClick = {
-                                    // TODO: 傳送 prompt 的邏輯（例如呼叫產圖 API）
-                                    // e.g., onSendMorningImage(prompt)
-                                }
+                                onClick = { /* TODO: 傳送 prompt */ },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF42A09D))
                             ) {
-                                Text("傳送")
+                                Text("傳送", color = Color.White)
                             }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+// 可重複使用的設定開關項目
+@Composable
+fun SettingItemRow(title: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White, shape = MaterialTheme.shapes.medium)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(title, color = Color.Black)
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = Color(0xFF42A09D)
+            )
+        )
+    }
+}
+
+// 可重複使用的導覽項目
+@Composable
+fun SettingNavRow(title: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .background(Color.White, shape = MaterialTheme.shapes.medium)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(title, color = Color.Black)
+        Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = Color(0xFF42A09D))
     }
 }

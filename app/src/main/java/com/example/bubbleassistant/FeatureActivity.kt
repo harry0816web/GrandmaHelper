@@ -5,14 +5,16 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 
 // 不新增檔案，常數就放這裡
 private const val PREFS = "shortcut_prefs"
@@ -50,14 +52,16 @@ fun FeaturesScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("常用詢問設定") },
+                title = { Text("常用詢問設定", color = Color.Black) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "返回", tint = Color(0xFF42A09D))
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFFE2F4F3)) // 舊版兼容
             )
-        }
+        },
+        containerColor = Color(0xFFE2F4F3)
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -67,27 +71,9 @@ fun FeaturesScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Editable fields
-            OutlinedTextField(
-                value = shortcut1Text,
-                onValueChange = { shortcut1Text = it },
-                label = { Text("常用詢問 1") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = shortcut2Text,
-                onValueChange = { shortcut2Text = it },
-                label = { Text("常用詢問 2") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = shortcut3Text,
-                onValueChange = { shortcut3Text = it },
-                label = { Text("常用詢問 3") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+            ShortcutTextField(label = "常用詢問 1", text = shortcut1Text, onTextChange = { shortcut1Text = it })
+            ShortcutTextField(label = "常用詢問 2", text = shortcut2Text, onTextChange = { shortcut2Text = it })
+            ShortcutTextField(label = "常用詢問 3", text = shortcut3Text, onTextChange = { shortcut3Text = it })
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -106,13 +92,36 @@ fun FeaturesScreen(
                     putOrRemove(K2, shortcut2Text)
                     putOrRemove(K3, shortcut3Text)
 
-                    val ok = e.commit() // 同步寫入，避免剛存就讀不到
+                    val ok = e.commit()
                     Toast.makeText(ctx, if (ok) "已儲存" else "儲存失敗", Toast.LENGTH_SHORT).show()
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF42A09D))
             ) {
-                Text("儲存")
+                Text("儲存", color = Color.White)
             }
         }
     }
+}
+
+@Composable
+fun ShortcutTextField(label: String, text: String, onTextChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = text,
+        onValueChange = onTextChange,
+        label = { Text(label, color = Color.Black) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = Color.White,       // 原 backgroundColor
+            unfocusedContainerColor = Color.White,     // 原 backgroundColor
+            focusedIndicatorColor = Color(0xFF42A09D),
+            unfocusedIndicatorColor = Color.LightGray,
+            cursorColor = Color(0xFF42A09D),
+            focusedLabelColor = Color(0xFF42A09D),
+            unfocusedLabelColor = Color.Gray           // 可選，給未聚焦時 label 顏色
+        )
+    )
 }

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 
@@ -108,7 +109,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 Scaffold(
-                    topBar = { TopAppBar(title = { Text("Grandma Helper") }) }
+                    containerColor = Color(0xFFE2F4F3)
                 ) { innerPadding ->
                     SettingsScreen(
                         modifier = Modifier.padding(innerPadding),
@@ -150,14 +151,13 @@ class MainActivity : ComponentActivity() {
                 }
 
                 val dialogTitle = "需要開啟協助工具服務"
-                val dialogText = "請在接下來的畫面中點選『已下載的應用程式』，並找到『BubbleAssistant』將其啟用，以允許螢幕內容分析"
+                val dialogText =
+                    "請在接下來的畫面中點選『已下載的應用程式』，並找到『BubbleAssistant』將其啟用，以允許螢幕內容分析"
                 var hasSpokenAccessibilityGuide by remember { mutableStateOf(false) }
 
                 LaunchedEffect(showAccessibilityGuide.value) {
                     if (showAccessibilityGuide.value && !hasSpokenAccessibilityGuide) {
-                        if (!dialogTitle.contains("開啟協助工具服務")) {
-                            ttsManager.speak("$dialogTitle. $dialogText")
-                        }
+                        ttsManager.speak("$dialogTitle. $dialogText")
                         hasSpokenAccessibilityGuide = true
                     } else if (!showAccessibilityGuide.value) {
                         ttsManager.stop()
@@ -171,21 +171,46 @@ class MainActivity : ComponentActivity() {
                             ttsManager.stop()
                             showAccessibilityGuide.value = false
                         },
-                        title = { Text(dialogTitle) },
-                        text = { Text(dialogText) },
+                        title = {
+                            Text(
+                                text = dialogTitle,
+                                color = Color(0xFF000000) // 黑色文字
+                            )
+                        },
+                        text = {
+                            Text(
+                                text = dialogText,
+                                color = Color(0xFF000000)
+                            )
+                        },
+                        containerColor = Color(0xFFE2F4F3), // 背景色
                         confirmButton = {
-                            TextButton(onClick = {
-                                ttsManager.stop()
-                                showAccessibilityGuide.value = false
-                                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                                startActivity(intent)
-                            }) { Text("前往設定") }
+                            TextButton(
+                                onClick = {
+                                    ttsManager.stop()
+                                    showAccessibilityGuide.value = false
+                                    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                                    startActivity(intent)
+                                }
+                            ) {
+                                Text(
+                                    "前往設定",
+                                    color = Color(0xFF42A09D) // 主色
+                                )
+                            }
                         },
                         dismissButton = {
-                            TextButton(onClick = {
-                                ttsManager.stop()
-                                showAccessibilityGuide.value = false
-                            }) { Text("稍後") }
+                            TextButton(
+                                onClick = {
+                                    ttsManager.stop()
+                                    showAccessibilityGuide.value = false
+                                }
+                            ) {
+                                Text(
+                                    "稍後",
+                                    color = Color(0xFF42A09D)
+                                )
+                            }
                         }
                     )
                 }
