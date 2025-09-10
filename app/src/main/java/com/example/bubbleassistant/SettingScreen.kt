@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun SettingsScreen(
@@ -41,6 +42,11 @@ fun SettingsScreen(
             Switch(checked = bubbleOn, onCheckedChange = onBubbleToggle)
         }
 
+        val context = LocalContext.current
+        val ttsManager = remember { TextToSpeechManager.getInstance(context) }
+        LaunchedEffect(voiceOn) {
+            ttsManager.setVoiceEnabled(voiceOn)
+        }
         // 語音開關
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -48,7 +54,13 @@ fun SettingsScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("開啟語音模式")
-            Switch(checked = voiceOn, onCheckedChange = onVoiceToggle)
+            Switch(
+                checked = voiceOn,
+                onCheckedChange = { enabled ->
+                    onVoiceToggle(enabled)   // 更新 UI 狀態
+                    ttsManager.setVoiceEnabled(enabled) // 連動到 TTS 單例
+                }
+            )
         }
 
         // 常用功能

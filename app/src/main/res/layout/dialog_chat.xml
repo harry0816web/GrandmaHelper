@@ -22,6 +22,7 @@
         <LinearLayout
             android:layout_width="287dp"
             android:layout_height="40dp"
+            android:layout_marginBottom="10dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -29,8 +30,9 @@
                 android:id="@+id/imageView"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
+                android:layout_marginRight="10dp"
                 android:contentDescription="logo"
-                android:src="@drawable/bubble" />
+                android:src="@drawable/bubble_new" />
 
             <TextView
                 android:id="@+id/title_text"
@@ -39,15 +41,8 @@
                 android:layout_weight="1"
                 android:text="有什麼可以幫你嗎？"
                 android:textColor="#333333"
-                android:textSize="18sp"
+                android:textSize="22sp"
                 android:textStyle="bold" />
-
-            <ImageView
-                android:id="@+id/btn_mic"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:contentDescription="voice"
-                android:src="@android:drawable/ic_btn_speak_now" />
 
         </LinearLayout>
 
@@ -107,21 +102,22 @@
             android:orientation="horizontal">
 
             <Button
-                android:id="@+id/send_button"
+                android:id="@+id/cancel_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="0dp"
                 android:background="@drawable/button_bg"
-                android:text="送出"
+                android:text="取消"
                 android:textAppearance="@style/TextAppearance.AppCompat.Medium"
                 android:textColor="#FFFFFF" />
 
             <Button
-                android:id="@+id/cancel_button"
+                android:id="@+id/send_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="24dp"
+                android:layout_marginLeft="24dp"
                 android:background="@drawable/button_bg"
-                android:text="取消"
+                android:text="送出"
                 android:textAppearance="@style/TextAppearance.AppCompat.Medium"
                 android:textColor="#FFFFFF" />
 

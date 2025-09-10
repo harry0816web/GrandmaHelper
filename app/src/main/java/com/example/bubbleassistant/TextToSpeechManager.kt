@@ -35,7 +35,14 @@ class TextToSpeechManager private constructor(private val context: Context) :
             }
         }
     }
+    @Volatile
+    var voiceEnabled: Boolean = true
+        private set
 
+    fun setVoiceEnabled(enabled: Boolean) {
+        voiceEnabled = enabled
+        Log.i("TextToSpeechManager", "Voice mode set to: $enabled")
+    }
     init {
         if (!isInitializing.getAndSet(true)) {
             tts = TextToSpeech(context.applicationContext, this)
@@ -77,6 +84,11 @@ class TextToSpeechManager private constructor(private val context: Context) :
      * @param utteranceId 每次播報都產生唯一 ID
      */
     fun speak(text: String, utteranceId: String = "tts_${System.currentTimeMillis()}") {
+        if (!voiceEnabled) {
+            Log.i("TextToSpeechManager", "Voice mode disabled. Skipping: $text")
+            return
+        }
+
         if (!isInitialized) {
             lastSpokenText = text
             Log.w("TextToSpeechManager", "TTS not initialized yet. Queuing text: $text")
@@ -91,7 +103,6 @@ class TextToSpeechManager private constructor(private val context: Context) :
             putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
         }
 
-        // 使用 QUEUE_ADD 讓多條訊息依序播
         tts?.speak(text, TextToSpeech.QUEUE_ADD, params, utteranceId)
         lastSpokenText = null
         Log.i("TextToSpeechManager", "Speaking: $text with ID: $utteranceId")
