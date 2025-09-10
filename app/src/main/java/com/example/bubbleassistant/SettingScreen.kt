@@ -95,7 +95,7 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("早安圖", style = MaterialTheme.typography.titleMedium)
+                    Text("每日一張早安圖", style = MaterialTheme.typography.titleMedium)
                     Icon(
                         imageVector = if (morningCardExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                         contentDescription = if (morningCardExpanded) "收起" else "展開"
