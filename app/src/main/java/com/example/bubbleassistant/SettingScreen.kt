@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.saveable.rememberSaveable
 
 @Composable
 fun SettingsScreen(
@@ -105,6 +106,10 @@ fun SettingsScreen(
                 // 展開內容
                 if (morningCardExpanded) {
                     Spacer(modifier = Modifier.height(16.dp))
+
+                    // 使用者輸入的早安圖描述
+                    var prompt by rememberSaveable { mutableStateOf("") }
+
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally
@@ -117,9 +122,34 @@ fun SettingsScreen(
                         ) {
                             Text("空白圖片")
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(onClick = { /* TODO: 換圖邏輯 */ }) {
-                            Text("更換圖片")
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // 左：輸入框，右：傳送按鈕
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextField(
+                                value = prompt,
+                                onValueChange = { prompt = it },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 56.dp),
+                                placeholder = { Text("想要生成什麼樣的早安圖呢") },
+                                singleLine = true
+                            )
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Button(
+                                onClick = {
+                                    // TODO: 傳送 prompt 的邏輯（例如呼叫產圖 API）
+                                    // e.g., onSendMorningImage(prompt)
+                                }
+                            ) {
+                                Text("傳送")
+                            }
                         }
                     }
                 }
