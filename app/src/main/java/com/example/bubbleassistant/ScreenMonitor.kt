@@ -1503,12 +1503,12 @@ class ScreenMonitor : AccessibilityService() {
 
         if (idCandidates.isNotEmpty()) {
             val best = idCandidates.maxByOrNull { it.second }!!.first
-            Log.d(TAG, "✅ 最佳 header_title(由 id): '${best.text}' (bottom=${idCandidates.maxOf { it.second }})")
+            Log.d(TAG, "最佳 header_title(由 id): '${best.text}' (bottom=${idCandidates.maxOf { it.second }})")
             return best
         }
         if (heuristicCandidates.isNotEmpty()) {
             val best = heuristicCandidates.maxByOrNull { it.second }!!.first
-            Log.d(TAG, "✅ 最佳 header_title(啟發式): '${best.text}' (bottom=${heuristicCandidates.maxOf { it.second }})")
+            Log.d(TAG, "最佳 header_title(啟發式): '${best.text}' (bottom=${heuristicCandidates.maxOf { it.second }})")
             return best
         }
         return null
@@ -1519,7 +1519,7 @@ class ScreenMonitor : AccessibilityService() {
         val rect = android.graphics.Rect()
         val queue: ArrayDeque<AccessibilityNodeInfo> = ArrayDeque()
         queue.add(rootNode)
-        Log.d(TAG, "🔎 列印 header_title 候選 [$label] ...")
+        Log.d(TAG, "列印 header_title 候選 [$label] ...")
         var count = 0
         while (queue.isNotEmpty()) {
             val node = queue.removeFirst()
@@ -1527,12 +1527,12 @@ class ScreenMonitor : AccessibilityService() {
             val text = node.text?.toString()?.trim().orEmpty()
             if ((id.contains("header_title") || (node.className?.toString()?.contains("textview", true) == true)) && text.isNotBlank()) {
                 node.getBoundsInScreen(rect)
-                Log.d(TAG, "📍 [$label] header candidate: '$text' id=$id @(${rect.left},${rect.top},${rect.width()}x${rect.height()})")
+                Log.d(TAG, "[$label] header candidate: '$text' id=$id @(${rect.left},${rect.top},${rect.width()}x${rect.height()})")
                 count++
             }
             for (i in 0 until node.childCount) node.getChild(i)?.let { queue.add(it) }
         }
-        Log.d(TAG, "🔎 [$label] 總共 ${count} 個候選")
+        Log.d(TAG, "[$label] 總共 ${count} 個候選")
     }
 }
 
