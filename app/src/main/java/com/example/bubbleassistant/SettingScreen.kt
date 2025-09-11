@@ -222,7 +222,7 @@ fun SettingsScreen(
                             TextField(
                                 value = prompt,
                                 onValueChange = { prompt = it },
-                                placeholder = { Text("想要生成什麼樣的早安圖") },
+                                placeholder = { Text("想要生成怎樣的早安圖") },
                                 singleLine = true,
                                 modifier = Modifier
                                     .weight(1f)
