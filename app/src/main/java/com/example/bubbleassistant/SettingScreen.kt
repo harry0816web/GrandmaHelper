@@ -108,7 +108,8 @@ fun SettingsScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(300.dp)
+                                .weight(1f)
+                                .fillMaxSize()
                                 .background(Color(0xFFE2F4F3)),
                             contentAlignment = Alignment.Center
                         ) {
