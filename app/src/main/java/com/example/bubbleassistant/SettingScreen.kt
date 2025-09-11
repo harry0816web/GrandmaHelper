@@ -5,9 +5,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.KeyboardVoice
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -17,6 +23,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TextField
+import androidx.compose.ui.graphics.vector.ImageVector
+
 @Composable
 fun SettingsScreen(
     modifier: Modifier = Modifier,
@@ -42,6 +50,7 @@ fun SettingsScreen(
 
         // Bubble Assistant 開關
         SettingItemRow(
+            icon = Icons.Default.ChatBubble,
             title = "開啟詢問泡泡",
             checked = bubbleOn,
             onCheckedChange = onBubbleToggle
@@ -54,6 +63,7 @@ fun SettingsScreen(
             ttsManager.setVoiceEnabled(voiceOn)
         }
         SettingItemRow(
+            icon = Icons.Default.KeyboardVoice,
             title = "開啟語音模式",
             checked = voiceOn,
             onCheckedChange = {
@@ -63,10 +73,10 @@ fun SettingsScreen(
         )
 
         // 常用功能
-        SettingNavRow(title = "常用詢問設定", onClick = onNavigateFeatures)
+        SettingNavRow(icon = Icons.Default.Tune, title = "常用詢問設定", onClick = onNavigateFeatures)
 
         // 使用教學
-        SettingNavRow(title = "App 使用教學", onClick = onNavigateTutorial)
+        SettingNavRow(icon = Icons.Default.Info, title = "App 使用教學", onClick = onNavigateTutorial)
 
         // 早安圖 - 可展開卡片
         var morningCardExpanded by remember { mutableStateOf(false) }
@@ -84,11 +94,16 @@ fun SettingsScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { morningCardExpanded = !morningCardExpanded },
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .clickable { morningCardExpanded = !morningCardExpanded }
                 ) {
-                    Text("每日一張早安圖", style = MaterialTheme.typography.titleMedium, color = Color.Black)
+                    Icon(
+                        imageVector = Icons.Default.Image,
+                        contentDescription = "早安圖 Icon",
+                        tint = Color(0xFF42A09D),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("每日一張早安圖", style = MaterialTheme.typography.titleMedium, color = Color.Black, modifier = Modifier.weight(1f))
                     Icon(
                         imageVector = if (morningCardExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                         contentDescription = if (morningCardExpanded) "收起" else "展開",
@@ -161,16 +176,34 @@ fun SettingsScreen(
 
 // 可重複使用的設定開關項目
 @Composable
-fun SettingItemRow(title: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+fun SettingItemRow(
+    icon: ImageVector,
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color.White, shape = MaterialTheme.shapes.medium)
             .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(title, color = Color.Black)
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = Color(0xFF42A09D),
+            modifier = Modifier.size(24.dp)
+        )
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Text(
+            text = title,
+            color = Color.Black,
+            modifier = Modifier.weight(1f) // 讓文字佔滿中間空間
+        )
+
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
@@ -182,19 +215,40 @@ fun SettingItemRow(title: String, checked: Boolean, onCheckedChange: (Boolean) -
     }
 }
 
-// 可重複使用的導覽項目
+// 可點擊導覽的設定列
 @Composable
-fun SettingNavRow(title: String, onClick: () -> Unit) {
+fun SettingNavRow(
+    icon: ImageVector,
+    title: String,
+    onClick: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
             .background(Color.White, shape = MaterialTheme.shapes.medium)
             .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(title, color = Color.Black)
-        Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = Color(0xFF42A09D))
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = Color(0xFF42A09D),
+            modifier = Modifier.size(24.dp)
+        )
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Text(
+            text = title,
+            color = Color.Black,
+            modifier = Modifier.weight(1f) // 填滿空間，讓箭頭靠右
+        )
+
+        Icon(
+            imageVector = Icons.Default.KeyboardArrowRight,
+            contentDescription = null,
+            tint = Color(0xFF42A09D)
+        )
     }
 }
