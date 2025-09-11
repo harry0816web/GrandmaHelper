@@ -45,7 +45,7 @@ class ScreenMonitor : AccessibilityService() {
         fun activateMonitoring() {
             instance?.let { monitor ->
                 if (!monitor.onDemandActive.getAndSet(true)) {
-                    Log.i("ScreenMonitor", "🟢 啟用按需監控")
+                    Log.i("ScreenMonitor", "啟用按需監控")
                     monitor.startServerIfNeeded()
                     monitor.mainHandler.post { monitor.setupOverlay() }
                     // 啟用時立即觸發一次掃描，避免回傳預設 Waiting 內容
@@ -59,7 +59,7 @@ class ScreenMonitor : AccessibilityService() {
                     // 自動超時關閉，避免卡住持續監控
                     monitor.mainHandler.postDelayed({
                         if (monitor.onDemandActive.get()) {
-                            Log.i("ScreenMonitor", "⏲️ 按需監控自動超時，執行停用")
+                            Log.i("ScreenMonitor", "⏲按需監控自動超時，執行停用")
                             deactivateMonitoring()
                         }
                     }, monitor.autoTimeoutMs)
@@ -70,7 +70,7 @@ class ScreenMonitor : AccessibilityService() {
         fun deactivateMonitoring() {
             instance?.let { monitor ->
                 if (monitor.onDemandActive.getAndSet(false)) {
-                    Log.i("ScreenMonitor", "⚪ 停用按需監控")
+                    Log.i("ScreenMonitor", "停用按需監控")
                     monitor.stopServerIfRunning()
                     monitor.mainHandler.post { monitor.removeOverlay() }
                 }
@@ -91,10 +91,10 @@ class ScreenMonitor : AccessibilityService() {
         
         fun forceRefreshScreenInfo(): String {
             return instance?.let { monitor ->
-                Log.i("ScreenMonitor", "🔄 強制刷新螢幕資訊")
+                Log.i("ScreenMonitor", "強制刷新螢幕資訊")
                 // 強制刷新所有視窗，專注在 LINE 上
                 try {
-                    Log.i("ScreenMonitor", "🔍 強制掃描所有視窗，尋找 LINE 應用")
+                    Log.i("ScreenMonitor", "強制掃描所有視窗，尋找 LINE 應用")
                     monitor.tryGetDataFromAllWindows()
                     // 等待一下讓螢幕資訊更新
                     Thread.sleep(200)
@@ -163,9 +163,9 @@ class ScreenMonitor : AccessibilityService() {
         // 每 10 次事件顯示一次狀態
         eventCount++
         if (eventCount % 10 == 0) {
-            Log.i(TAG, "📊 螢幕監控服務運行中 - 已處理 $eventCount 個事件")
-            Log.i(TAG, "📊 當前應用: ${event.packageName}")
-            Log.i(TAG, "📊 事件類型: ${AccessibilityEvent.eventTypeToString(event.eventType)}")
+            Log.i(TAG, "螢幕監控服務運行中 - 已處理 $eventCount 個事件")
+            Log.i(TAG, "當前應用: ${event.packageName}")
+            Log.i(TAG, "事件類型: ${AccessibilityEvent.eventTypeToString(event.eventType)}")
         }
 
         // 忽略我們自己的應用程式事件
@@ -305,15 +305,15 @@ class ScreenMonitor : AccessibilityService() {
         val json = "{\"summaryText\":\"$escaped\",\"timestampMs\":${System.currentTimeMillis()}}"
         latestScreenInfoJson.set(json)
         
-        Log.i("ScreenMonitor", "💾 更新螢幕資訊快取")
-        Log.i("ScreenMonitor", "📱 螢幕資訊長度: ${summary.length} 字元")
-        Log.i("ScreenMonitor", "⏰ 更新時間: ${System.currentTimeMillis()}")
+        Log.i("ScreenMonitor", "更新螢幕資訊快取")
+        Log.i("ScreenMonitor", "螢幕資訊長度: ${summary.length} 字元")
+        Log.i("ScreenMonitor", "更新時間: ${System.currentTimeMillis()}")
         
         // 顯示螢幕資訊的前 100 字元
         if (summary.length > 100) {
-            Log.i("ScreenMonitor", "📱 螢幕資訊預覽: ${summary.take(100)}...")
+            Log.i("ScreenMonitor", "螢幕資訊預覽: ${summary.take(100)}...")
         } else {
-            Log.i("ScreenMonitor", "📱 螢幕資訊: $summary")
+            Log.i("ScreenMonitor", "螢幕資訊: $summary")
         }
     }
 
@@ -1503,12 +1503,12 @@ class ScreenMonitor : AccessibilityService() {
 
         if (idCandidates.isNotEmpty()) {
             val best = idCandidates.maxByOrNull { it.second }!!.first
-            Log.d(TAG, "✅ 最佳 header_title(由 id): '${best.text}' (bottom=${idCandidates.maxOf { it.second }})")
+            Log.d(TAG, "最佳 header_title(由 id): '${best.text}' (bottom=${idCandidates.maxOf { it.second }})")
             return best
         }
         if (heuristicCandidates.isNotEmpty()) {
             val best = heuristicCandidates.maxByOrNull { it.second }!!.first
-            Log.d(TAG, "✅ 最佳 header_title(啟發式): '${best.text}' (bottom=${heuristicCandidates.maxOf { it.second }})")
+            Log.d(TAG, "最佳 header_title(啟發式): '${best.text}' (bottom=${heuristicCandidates.maxOf { it.second }})")
             return best
         }
         return null
@@ -1519,7 +1519,7 @@ class ScreenMonitor : AccessibilityService() {
         val rect = android.graphics.Rect()
         val queue: ArrayDeque<AccessibilityNodeInfo> = ArrayDeque()
         queue.add(rootNode)
-        Log.d(TAG, "🔎 列印 header_title 候選 [$label] ...")
+        Log.d(TAG, "列印 header_title 候選 [$label] ...")
         var count = 0
         while (queue.isNotEmpty()) {
             val node = queue.removeFirst()
@@ -1527,12 +1527,12 @@ class ScreenMonitor : AccessibilityService() {
             val text = node.text?.toString()?.trim().orEmpty()
             if ((id.contains("header_title") || (node.className?.toString()?.contains("textview", true) == true)) && text.isNotBlank()) {
                 node.getBoundsInScreen(rect)
-                Log.d(TAG, "📍 [$label] header candidate: '$text' id=$id @(${rect.left},${rect.top},${rect.width()}x${rect.height()})")
+                Log.d(TAG, "[$label] header candidate: '$text' id=$id @(${rect.left},${rect.top},${rect.width()}x${rect.height()})")
                 count++
             }
             for (i in 0 until node.childCount) node.getChild(i)?.let { queue.add(it) }
         }
-        Log.d(TAG, "🔎 [$label] 總共 ${count} 個候選")
+        Log.d(TAG, "[$label] 總共 ${count} 個候選")
     }
 }
 
