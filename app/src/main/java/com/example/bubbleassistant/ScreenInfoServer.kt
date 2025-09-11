@@ -74,7 +74,7 @@ class ScreenInfoServer(
             val method = parts.getOrNull(0) ?: ""
             val path = parts.getOrNull(1) ?: "/"
             
-            Log.i(TAG, "🌐 HTTP 請求: $method $path")
+            Log.i(TAG, "HTTP 請求: $method $path")
 
             // Drain headers
             while (true) {
@@ -89,17 +89,17 @@ class ScreenInfoServer(
 
             when (path) {
                 "/health" -> {
-                    Log.i(TAG, "✅ 健康檢查請求")
+                    Log.i(TAG, "健康檢查請求")
                     respond(writer, 200, "OK", "text/plain", "ok")
                 }
                 "/screen-info" -> {
-                    Log.i(TAG, "📱 螢幕資訊請求")
+                    Log.i(TAG, "螢幕資訊請求")
                     val json = jsonProvider.invoke()
-                    Log.i(TAG, "📱 回應螢幕資訊長度: ${json.length} 字元")
+                    Log.i(TAG, "回應螢幕資訊長度: ${json.length} 字元")
                     respond(writer, 200, "OK", "application/json; charset=utf-8", json)
                 }
                 else -> {
-                    Log.w(TAG, "❌ 未知路徑: $path")
+                    Log.w(TAG, "未知路徑: $path")
                     respond(writer, 404, "Not Found", "text/plain", "not found")
                 }
             }
