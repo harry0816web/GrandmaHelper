@@ -447,7 +447,7 @@ class ScreenMonitor : AccessibilityService() {
      */
     private fun inspectTopPage(root: AccessibilityNodeInfo): AccessibilityNodeInfo {
         try {
-            Log.d(TAG, "🔍 開始檢查頂層頁面...")
+            Log.d(TAG, "開始檢查頂層頁面...")
             
             // 1. 檢查是否有 header_title == "設定"
             val settingsHeader = findHeaderWithTitle(root, "設定")
@@ -456,7 +456,7 @@ class ScreenMonitor : AccessibilityService() {
                 return root
             }
             
-            Log.d(TAG, "✅ 找到設定頁標題")
+            Log.d(TAG, "找到設定頁標題")
             
             // 2. 檢查是否有設定清單的徵兆
             val hasSettingList = hasSettingListIndicators(root)
@@ -465,7 +465,7 @@ class ScreenMonitor : AccessibilityService() {
                 return root
             }
             
-            Log.d(TAG, "✅ 找到設定清單徵兆")
+            Log.d(TAG, "找到設定清單徵兆")
             
             // 3. 掃描容器內是否還有其他 header_title
             val otherHeaders = findAllHeaders(root)
@@ -479,7 +479,7 @@ class ScreenMonitor : AccessibilityService() {
                 return root
             }
             
-            Log.d(TAG, "✅ 找到 ${nonSettingsHeaders.size} 個非設定標題")
+            Log.d(TAG, "找到 ${nonSettingsHeaders.size} 個非設定標題")
             
             // 4. 取文字 ≠ "設定" 且 bottom 最大的 header_title 當作子畫面 header
             val subPageHeader = findBottomMostHeader(nonSettingsHeaders)
@@ -489,7 +489,7 @@ class ScreenMonitor : AccessibilityService() {
             }
             
             val subPageTitle = subPageHeader.text?.toString()?.trim() ?: "Unknown"
-            Log.d(TAG, "✅ 找到子畫面標題: $subPageTitle")
+            Log.d(TAG, "找到子畫面標題: $subPageTitle")
             
             // 5. 從該 header 往上找最近的「頁面容器」（同時含 header 與 scrollable）
             val pageContainer = findPageContainerFromHeader(subPageHeader)
@@ -498,7 +498,7 @@ class ScreenMonitor : AccessibilityService() {
                 return root
             }
             
-            Log.d(TAG, "✅ 找到子畫面容器，切換到子畫面: $subPageTitle")
+            Log.d(TAG, "找到子畫面容器，切換到子畫面: $subPageTitle")
             return pageContainer
             
         } catch (e: Exception) {
@@ -817,7 +817,7 @@ class ScreenMonitor : AccessibilityService() {
      */
     private fun findMainPageContent(root: AccessibilityNodeInfo, items: MutableList<String>) {
         try {
-            Log.d(TAG, "🔍 開始掃描主頁內容...")
+            Log.d(TAG, "開始掃描主頁內容...")
             
             val queue: ArrayDeque<AccessibilityNodeInfo> = ArrayDeque()
             queue.add(root)
@@ -882,7 +882,7 @@ class ScreenMonitor : AccessibilityService() {
                     
                     // 將主頁元素插入到列表開頭，優先顯示
                     items.add(0, label)
-                    Log.d(TAG, "✅ 找到主頁元素: $displayText")
+                    Log.d(TAG, "找到主頁元素: $displayText")
                 }
                 
                 // 檢查子節點
@@ -891,7 +891,7 @@ class ScreenMonitor : AccessibilityService() {
                 }
             }
             
-            Log.d(TAG, "✅ 主頁內容掃描完成，找到 ${items.size} 個元素")
+            Log.d(TAG, "主頁內容掃描完成，找到 ${items.size} 個元素")
             
         } catch (e: Exception) {
             Log.e(TAG, "掃描主頁內容時發生錯誤", e)
@@ -966,11 +966,11 @@ class ScreenMonitor : AccessibilityService() {
                     append("頁面標題: $currentPageTitle\n")
                     append("掃描項目: ${sortedItems.size} 個 (已過濾)\n\n")
                     
-                    append("🎯 === 當前頁面內容分析 ===\n")
+                    append("=== 當前頁面內容分析 ===\n")
                     
                     // 可點擊元素（按鈕、選單等）
                     if (clickableItems.isNotEmpty()) {
-                        append("\n🖱️ === 可點擊元素 (${clickableItems.size} 項) ===\n")
+                        append("\n=== 可點擊元素 (${clickableItems.size} 項) ===\n")
                         append(clickableItems.take(15).joinToString("\n"))
                         if (clickableItems.size > 15) {
                             append("\n... 還有 ${clickableItems.size - 15} 個可點擊元素\n")
@@ -979,7 +979,7 @@ class ScreenMonitor : AccessibilityService() {
                     
                     // 文字內容
                     if (textItems.isNotEmpty()) {
-                        append("\n📝 === 文字內容 (${textItems.size} 項) ===\n")
+                        append("\n=== 文字內容 (${textItems.size} 項) ===\n")
                         append(textItems.take(20).joinToString("\n"))
                         if (textItems.size > 20) {
                             append("\n... 還有 ${textItems.size - 20} 個文字元素\n")
@@ -988,7 +988,7 @@ class ScreenMonitor : AccessibilityService() {
                     
                     // 圖片元素
                     if (imageItems.isNotEmpty()) {
-                        append("\n🖼️ === 圖片元素 (${imageItems.size} 項) ===\n")
+                        append("\n=== 圖片元素 (${imageItems.size} 項) ===\n")
                         append(imageItems.take(10).joinToString("\n"))
                         if (imageItems.size > 10) {
                             append("\n... 還有 ${imageItems.size - 10} 個圖片元素\n")
@@ -997,7 +997,7 @@ class ScreenMonitor : AccessibilityService() {
                     
                     // 按鈕元素
                     if (buttonItems.isNotEmpty()) {
-                        append("\n🔘 === 按鈕元素 (${buttonItems.size} 項) ===\n")
+                        append("\n=== 按鈕元素 (${buttonItems.size} 項) ===\n")
                         append(buttonItems.take(10).joinToString("\n"))
                         if (buttonItems.size > 10) {
                             append("\n... 還有 ${buttonItems.size - 10} 個按鈕元素\n")
@@ -1009,7 +1009,7 @@ class ScreenMonitor : AccessibilityService() {
                         it.contains("scrollable") || it.contains("selected") || it.contains("focused")
                     }
                     if (importantOtherItems.isNotEmpty()) {
-                        append("\n🔧 === 重要其他元素 (${importantOtherItems.size} 項) ===\n")
+                        append("\n=== 重要其他元素 (${importantOtherItems.size} 項) ===\n")
                         append(importantOtherItems.take(8).joinToString("\n"))
                         if (importantOtherItems.size > 8) {
                             append("\n... 還有 ${importantOtherItems.size - 8} 個重要元素\n")
@@ -1033,7 +1033,7 @@ class ScreenMonitor : AccessibilityService() {
                         else -> currentPageType
                     }
 
-                    append("\n📱 === $displayPageType ===\n")
+                    append("\n=== $displayPageType ===\n")
                     
                     if (displayPageType == "主頁") {
                         append("當前在 LINE 主頁，可瀏覽個人資訊、好友/群組、官方帳號等\n")
@@ -1311,21 +1311,21 @@ class ScreenMonitor : AccessibilityService() {
      */
     private fun identifyLinePageType(rootNode: AccessibilityNodeInfo, originalRoot: AccessibilityNodeInfo? = null): String {
         try {
-            Log.d(TAG, "🔍 開始動態識別頁面類型...")
+            Log.d(TAG, "開始動態識別頁面類型...")
             
             // 首先檢查是否有子畫面的 header_title
             val subPageHeader = selectBestHeaderTitle(rootNode, originalRoot)
             if (subPageHeader != null) {
                 val subPageTitle = subPageHeader.text?.toString()?.trim() ?: ""
-                Log.d(TAG, "✅ 找到子畫面標題: $subPageTitle")
+                Log.d(TAG, "找到子畫面標題: $subPageTitle")
                 
                 // 動態生成頁面類型：直接使用 header_title 的內容 + "設定"
                 val pageType = "${subPageTitle}設定"
-                Log.d(TAG, "✅ 生成頁面類型: $pageType")
+                Log.d(TAG, "生成頁面類型: $pageType")
                 return pageType
             }
             
-            Log.d(TAG, "⚠️ 未找到子畫面標題，開始掃描所有 header_title...")
+            Log.d(TAG, "未找到子畫面標題，開始掃描所有 header_title...")
             
             // 若未找到子畫面標題，後續會檢查「設定主頁」
 
@@ -1341,15 +1341,15 @@ class ScreenMonitor : AccessibilityService() {
                 
                 // 檢查是否為設定主頁
                 if (viewId.contains("header_title") && text == "設定") {
-                    Log.d(TAG, "✅ 識別為設定主頁")
+                    Log.d(TAG, "識別為設定主頁")
                     return "設定主頁"
                 }
                 
                 // 檢查其他頁面類型（動態方式）
                 if (viewId.contains("header_title") && text.isNotBlank()) {
-                    Log.d(TAG, "✅ 找到其他 header_title: $text")
+                    Log.d(TAG, "找到其他 header_title: $text")
                     val pageType = "${text}設定"
-                    Log.d(TAG, "✅ 生成頁面類型: $pageType")
+                    Log.d(TAG, "生成頁面類型: $pageType")
                     return pageType
                 }
                 
@@ -1363,7 +1363,7 @@ class ScreenMonitor : AccessibilityService() {
             findHeaderTitleHeuristic(rootNode, excludeText = null)?.let { header ->
                 val title = header.text?.toString()?.trim()
                 if (title == "設定") {
-                    Log.d(TAG, "✅ 啟發式識別為設定主頁")
+                    Log.d(TAG, "啟發式識別為設定主頁")
                     return "設定主頁"
                 }
             }
@@ -1373,13 +1373,13 @@ class ScreenMonitor : AccessibilityService() {
                 findHeaderTitleHeuristic(originalRoot, excludeText = null)?.let { header ->
                     val title = header.text?.toString()?.trim()
                     if (title == "設定") {
-                        Log.d(TAG, "✅ 原始 root 啟發式識別為設定主頁")
+                        Log.d(TAG, "原始 root 啟發式識別為設定主頁")
                         return "設定主頁"
                     }
                 }
             }
 
-            Log.d(TAG, "⚠️ 未找到任何 header_title")
+            Log.d(TAG, "未找到任何 header_title")
         } catch (e: Exception) {
             Log.e(TAG, "Error identifying page type", e)
         }
@@ -1394,7 +1394,7 @@ class ScreenMonitor : AccessibilityService() {
         val queue: ArrayDeque<AccessibilityNodeInfo> = ArrayDeque()
         queue.add(rootNode)
         
-        Log.d(TAG, "🔍 開始搜尋子畫面 header_title...")
+        Log.d(TAG, "開始搜尋子畫面 header_title...")
         
         while (queue.isNotEmpty()) {
             val node = queue.removeFirst()
@@ -1404,12 +1404,12 @@ class ScreenMonitor : AccessibilityService() {
             
             // 記錄所有找到的 header_title
             if (viewId.contains("header_title")) {
-                Log.d(TAG, "📍 找到 header_title: '$text' [id=$viewId]")
+                Log.d(TAG, "找到 header_title: '$text' [id=$viewId]")
             }
             
             // 找到非"設定"的 header_title
             if (viewId.contains("header_title") && text != "設定" && text.isNotBlank()) {
-                Log.d(TAG, "✅ 找到子畫面 header_title: '$text'")
+                Log.d(TAG, "找到子畫面 header_title: '$text'")
                 return node
             }
             
@@ -1420,11 +1420,11 @@ class ScreenMonitor : AccessibilityService() {
         
         // 如果透過 viewId 未找到，改用啟發式在頂部尋找
         findHeaderTitleHeuristic(rootNode, excludeText = "設定")?.let { header ->
-            Log.d(TAG, "✅ 啟發式找到子畫面 header_title: '${header.text}'")
+            Log.d(TAG, "啟發式找到子畫面 header_title: '${header.text}'")
             return header
         }
 
-        Log.d(TAG, "⚠️ 未找到子畫面 header_title")
+        Log.d(TAG, "未找到子畫面 header_title")
         return null
     }
 
