@@ -1,5 +1,4 @@
 package com.example.bubbleassistant
-
 import android.app.Activity
 import android.graphics.PixelFormat
 import android.graphics.Rect
@@ -109,9 +108,7 @@ class ChatDialogActivity : Activity() {
             // 主流程
             OverlayAgent.scope.launch {
                 // 1) 先監控（overlay 隱藏中）
-                val screenInfo = runWithOverlayHiddenDuringMonitoring {
-                    getRealTimeScreenInfo()
-                }
+                val screenInfo = runWithOverlayHiddenDuringMonitoring { getRealTimeScreenInfo() }
 
                 // 2) 監控完成後，立刻顯示「請稍候…」
                 withContext(Dispatchers.Main) { showPleaseWait() }
@@ -128,14 +125,23 @@ class ChatDialogActivity : Activity() {
 
                 // 4) 收到回覆後更新 overlay
                 withContext(Dispatchers.Main) {
-                    if (serverMessage.contains("恭喜成功")) {
-                        steps = mutableListOf("🎉 恭喜成功！")
-                        updateStepText()
-                        showSuccessThenDismiss()
-                    } else {
-                        steps = mutableListOf(serverMessage.ifBlank { "請依畫面提示操作下一步" })
-                        updateStepText()
-                        stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = true
+                    when {
+                        serverMessage.contains("沒有明確目的") -> {
+                            val msg = "您的輸入沒有明確目的，請告訴我您想要做到的事情喔!"
+                            steps = mutableListOf(msg)
+                            updateStepText()
+                            showAutoDismiss(msg) // 自動關閉，且不顯示勾選
+                        }
+                        serverMessage.contains("恭喜成功") -> {
+                            steps = mutableListOf("🎉 恭喜成功！")
+                            updateStepText()
+                            showSuccessThenDismiss()
+                        }
+                        else -> {
+                            steps = mutableListOf(serverMessage.ifBlank { "請依畫面提示操作下一步" })
+                            updateStepText()
+                            stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = true
+                        }
                     }
                     isBusy = false
                 }
@@ -224,7 +230,6 @@ class ChatDialogActivity : Activity() {
     private fun bindStepEvents() {
         val cb = stepView!!.findViewById<CheckBox>(R.id.btn_check)
         cb.isChecked = false
-
         cb.setOnCheckedChangeListener { _, isChecked ->
             if (!isChecked || isBusy) return@setOnCheckedChangeListener
             isBusy = true
@@ -236,13 +241,16 @@ class ChatDialogActivity : Activity() {
                 isBusy = false
                 return@setOnCheckedChangeListener
             }
+            if (currentText.contains("沒有明確目的")) {
+                // 若目前就是「沒有明確目的」訊息，直接自動關閉
+                showAutoDismiss(currentText)
+                isBusy = false
+                return@setOnCheckedChangeListener
+            }
+
             OverlayAgent.scope.launch {
-                val screenInfo = runWithOverlayHiddenDuringMonitoring {
-                    getRealTimeScreenInfo()
-                }
-
+                val screenInfo = runWithOverlayHiddenDuringMonitoring { getRealTimeScreenInfo() }
                 withContext(Dispatchers.Main) { showPleaseWait() }
-
                 val nextMsg = withContext(Dispatchers.IO) {
                     OverlayAgent.callAssistantApi(
                         userMsg = initialUserMsg,
@@ -253,14 +261,23 @@ class ChatDialogActivity : Activity() {
                 }.trim()
 
                 withContext(Dispatchers.Main) {
-                    if (nextMsg.contains("恭喜成功")) {
-                        steps = mutableListOf("恭喜成功！")
-                        updateStepText()
-                        showSuccessThenDismiss()
-                    } else {
-                        steps = mutableListOf(nextMsg.ifBlank { "請依畫面提示操作下一步" })
-                        updateStepText()
-                        stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = true
+                    when {
+                        nextMsg.contains("沒有明確目的") -> {
+                            val msg = "您的輸入沒有明確目的，請告訴我您想要做到的事情喔!"
+                            steps = mutableListOf(msg)
+                            updateStepText()
+                            showAutoDismiss(msg)
+                        }
+                        nextMsg.contains("恭喜成功") -> {
+                            steps = mutableListOf("恭喜成功！")
+                            updateStepText()
+                            showSuccessThenDismiss()
+                        }
+                        else -> {
+                            steps = mutableListOf(nextMsg.ifBlank { "請依畫面提示操作下一步" })
+                            updateStepText()
+                            stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = true
+                        }
                     }
                     isBusy = false
                 }
@@ -302,7 +319,6 @@ class ChatDialogActivity : Activity() {
                     isDragging = false
                     dragTouchStartY = event.rawY
                     dragStartY = stepLp?.y ?: 0
-                    // 開始追蹤
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -323,7 +339,6 @@ class ChatDialogActivity : Activity() {
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     val wasDragging = isDragging
                     isDragging = false
-                    // 若剛拖曳過就吃掉事件，避免誤觸裡面的點擊
                     wasDragging
                 }
                 else -> false
@@ -336,7 +351,11 @@ class ChatDialogActivity : Activity() {
         val tv = stepView?.findViewById<TextView>(R.id.tv_step) ?: return
         val text = steps.firstOrNull().orEmpty()
         tv.text = text
-        val showCheckbox = !(text.contains("恭喜成功") || text.contains("已關閉任務") || text.contains("請稍候"))
+
+        val showCheckbox = !(text.contains("恭喜成功")
+                || text.contains("已關閉任務")
+                || text.contains("請稍候")
+                || text.contains("沒有明確目的"))
         stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = showCheckbox
 
         if (text.isNotBlank()) {
@@ -360,8 +379,22 @@ class ChatDialogActivity : Activity() {
         }, 1200)
     }
 
+    // === 新增：顯示訊息並自動關閉（用於「沒有明確目的」） ===
+    private fun showAutoDismiss(message: String, delayMs: Long = 1200) {
+        val tv = stepView?.findViewById<TextView>(R.id.tv_step) ?: return
+        tv.text = message
+        stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = false
+        stepView?.visibility = View.VISIBLE
+        stepView?.postDelayed({
+            dismissOverlay()
+            OverlayAgent.taskActive = false
+        }, delayMs)
+    }
+
     private fun dismissOverlay() {
-        stepView?.let { v -> try { wm?.removeView(v) } catch (_: Exception) {} }
+        stepView?.let { v ->
+            try { wm?.removeView(v) } catch (_: Exception) {}
+        }
         stepView = null
         stepLp = null
         steps.clear()
@@ -372,7 +405,6 @@ class ChatDialogActivity : Activity() {
     // ===== 擷取螢幕資訊 =====
     private fun getRealTimeScreenInfo(): String {
         try { ScreenMonitor.activateMonitoring() } catch (_: Throwable) {}
-
         try {
             val forced = ScreenMonitor.forceRefreshScreenInfo()
             if (forced.isNotBlank() && !forced.contains("Waiting for elements")) {
@@ -417,7 +449,6 @@ class ChatDialogActivity : Activity() {
         val btn3 = findViewById<Button>(R.id.shortcut3)
 
         val p = getSharedPreferences("shortcut_prefs", Context.MODE_PRIVATE)
-
         fun savedOrDefault(key: String, def: String): String {
             val saved = p.getString(key, null)
             return if (saved.isNullOrBlank()) def else saved
