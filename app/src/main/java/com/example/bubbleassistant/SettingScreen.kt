@@ -206,7 +206,7 @@ fun SettingsScreen(
                                 }
                                 //!errorMsg.isNullOrBlank() -> Text("錯誤：$errorMsg", color = Color.Red)
                                 else -> {
-                                    Text("準備生成圖片…", color = Color.Gray)
+                                    Text("按一下生成來取得早安圖喔!", color = Color.Gray)
                                 }
                             }
                         }
