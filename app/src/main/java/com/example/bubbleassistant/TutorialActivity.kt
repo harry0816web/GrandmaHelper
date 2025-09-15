@@ -17,8 +17,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 
 class TutorialActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -29,6 +32,12 @@ class TutorialActivity : ComponentActivity() {
     }
 }
 
+data class TutorialPage(
+    val title: String,
+    val subtitle: String,
+    val imageRes: Int
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TutorialScreen(
@@ -38,12 +47,33 @@ fun TutorialScreen(
     val activity = context as? Activity   // 取得目前的 Activity
 
     val pages = listOf(
-        "打開泡泡的開關",
-        "點擊泡泡",
-        "輸入問題(也可以點擊上方快速捷徑喔！)",
-        "根據步驟操作，完成點擊右上方打勾",
-        "問題解決！"
+        TutorialPage(
+            "1.開啟泡泡",
+            "點擊右上角的開關，啟動泡泡功能",
+            R.drawable.tutorial_step1 // ← 放你的教學圖片
+        ),
+        TutorialPage(
+            "2.點選泡泡",
+            "輕觸畫面上的泡泡，開啟互動視窗",
+            R.drawable.tutorial_step2
+        ),
+        TutorialPage(
+            "3.輸入或選擇問題",
+            "在輸入框輸入問題，或直接點擊上方的快速捷徑",
+            R.drawable.tutorial_step3
+        ),
+        TutorialPage(
+            "4.獲得指引",
+            "完成步驟就打勾，問題輕鬆解決！",
+            R.drawable.tutorial_step4
+        ),
+//        TutorialPage(
+//            "查看解答",
+//            "系統將回覆結果，問題輕鬆解決！",
+//            R.drawable.tutorial_step5
+//        )
     )
+
 
     var currentPage by remember { mutableStateOf(0) }
 
@@ -71,18 +101,47 @@ fun TutorialScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f), // 卡片自動佔滿剩餘高度
+                    .weight(1f),
                 shape = RoundedCornerShape(16.dp),
                 elevation = CardDefaults.cardElevation(6.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text(pages[currentPage], style = MaterialTheme.typography.titleLarge)
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Text(
+                        text = pages[currentPage].title,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Color.Black,
+                        modifier = Modifier
+                            .align(Alignment.Start)
+                            .padding(start = 8.dp)
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = pages[currentPage].subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray,
+                        modifier = Modifier
+                            .align(Alignment.Start)
+                            .padding(start = 8.dp)
+                    )
+                    Spacer(modifier = Modifier.height(30.dp))
+                    Image(
+                        painter = painterResource(id = pages[currentPage].imageRes),
+                        contentDescription = pages[currentPage].title,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(3f / 4f),
+                        contentScale = ContentScale.Fit
+                    )
                 }
             }
+
 
             Spacer(modifier = Modifier.height(24.dp))
 
