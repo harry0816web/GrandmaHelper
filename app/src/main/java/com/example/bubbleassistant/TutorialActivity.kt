@@ -63,7 +63,7 @@ fun TutorialScreen(
             R.drawable.tutorial_step3
         ),
         TutorialPage(
-            "4.獲得指引",
+            "4.跟著教學做",
             "完成步驟就打勾，問題輕鬆解決！",
             R.drawable.tutorial_step4
         ),
@@ -85,9 +85,11 @@ fun TutorialScreen(
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "返回")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFFE2F4F3))
             )
-        }
+        },
+        containerColor = Color(0xFFE2F4F3)
     ) { inner ->
         Column(
             modifier = Modifier
@@ -104,13 +106,14 @@ fun TutorialScreen(
                     .weight(1f),
                 shape = RoundedCornerShape(16.dp),
                 elevation = CardDefaults.cardElevation(6.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                colors = CardDefaults.cardColors(containerColor = Color.White),
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(10.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Top
                 ) {
                     Spacer(modifier = Modifier.height(20.dp))
                     Text(
@@ -139,9 +142,19 @@ fun TutorialScreen(
                             .aspectRatio(3f / 4f),
                         contentScale = ContentScale.Fit
                     )
+                    if (currentPage == 2) {
+                        Spacer(modifier = Modifier.height(30.dp))
+                        Text(
+                            text = "*捷徑可以透過主頁修改",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.Gray,
+                            modifier = Modifier
+                                .align(Alignment.Start)
+                                .padding(start = 8.dp)
+                        )
+                    }
                 }
             }
-
 
             Spacer(modifier = Modifier.height(24.dp))
 
