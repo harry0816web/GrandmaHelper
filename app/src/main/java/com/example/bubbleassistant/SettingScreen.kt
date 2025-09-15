@@ -5,7 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandLess
@@ -25,10 +24,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TextField
 import androidx.compose.ui.graphics.vector.ImageVector
-// --- added imports for image picker, preview, upload, and saving ---
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import android.net.Uri
 import androidx.compose.foundation.Image
 import android.graphics.BitmapFactory
 import androidx.compose.ui.graphics.asImageBitmap
@@ -47,9 +42,6 @@ import android.os.Build
 import android.widget.Toast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-// --- added imports for EXIF orientation ---
-import androidx.exifinterface.media.ExifInterface
-import android.graphics.Matrix
 
 @Composable
 fun SettingsScreen(
@@ -104,7 +96,7 @@ fun SettingsScreen(
         // 使用教學
         SettingNavRow(icon = Icons.Default.Info, title = "App 使用教學", onClick = onNavigateTutorial)
 
-        // 早安圖 - 可展開卡片
+        // 早安圖 - 可展開卡片（已移除使用者上傳圖片，只顯示生成結果 + 可選 prompt）
         var morningCardExpanded by remember { mutableStateOf(false) }
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -129,7 +121,12 @@ fun SettingsScreen(
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("每日一張早安圖", style = MaterialTheme.typography.titleMedium, color = Color.Black, modifier = Modifier.weight(1f))
+                    Text(
+                        "每日一張早安圖",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color.Black,
+                        modifier = Modifier.weight(1f)
+                    )
                     Icon(
                         imageVector = if (morningCardExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                         contentDescription = if (morningCardExpanded) "收起" else "展開",
@@ -137,67 +134,41 @@ fun SettingsScreen(
                     )
                 }
 
-                // 展開內容
                 if (morningCardExpanded) {
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    // 僅保留「結果顯示 + 可選 prompt + 生成 + 另存」
                     var prompt by rememberSaveable { mutableStateOf("") }
-
-                    // states
-                    var pickedImageUri by rememberSaveable { mutableStateOf<String?>(null) }
-                    var previewBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
                     var resultBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
                     var isLoading by remember { mutableStateOf(false) }
                     var errorMsg by remember { mutableStateOf<String?>(null) }
-
                     val scope = rememberCoroutineScope()
-                    val pickImageLauncher = rememberLauncherForActivityResult(
-                        contract = ActivityResultContracts.GetContent()
-                    ) { uri: Uri? ->
-                        errorMsg = null
-                        resultBitmap = null
-                        pickedImageUri = uri?.toString()
-                        if (uri != null) {
-                            scope.launch {
-                                previewBitmap = decodeBitmapWithOrientation(context, uri)
-                                    ?: run { errorMsg = "讀取圖片失敗"; null }
-                            }
-                        } else {
-                            previewBitmap = null
-                        }
-                    }
 
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // 可點擊的預覽容器（依比例維持：weight + fillMaxSize）
+                        // 結果顯示區（無上傳、不可點）
                         Box(
                             modifier = Modifier
-                                .weight(1f)
-                                .fillMaxSize()
-                                .background(Color(0xFFE2F4F3))
-                                .clickable(enabled = !isLoading) { pickImageLauncher.launch("image/*") },
+                                .height(200.dp)
+                                .fillMaxWidth()
+                                .background(Color(0xFFE2F4F3)),
                             contentAlignment = Alignment.Center
                         ) {
-                            when {
-                                resultBitmap != null -> {
-                                    Image(bitmap = resultBitmap!!.asImageBitmap(), contentDescription = "生成結果")
-                                }
-                                previewBitmap != null -> {
-                                    Image(bitmap = previewBitmap!!.asImageBitmap(), contentDescription = "已選擇圖片預覽")
-                                }
-                                else -> {
-                                    Text("點此選擇圖片", color = Color.Gray)
-                                }
+                            if (resultBitmap != null) {
+                                Image(
+                                    bitmap = resultBitmap!!.asImageBitmap(),
+                                    contentDescription = "生成結果"
+                                )
+                            } else {
+                                Text("尚未生成圖片", color = Color.Gray)
                             }
 
-                            // 清除按鈕：左上角的小叉叉
-                            if (previewBitmap != null || resultBitmap != null) {
+                            // 清除結果按鈕（若需要快速清空）
+                            if (resultBitmap != null) {
                                 IconButton(
                                     onClick = {
-                                        pickedImageUri = null
-                                        previewBitmap = null
                                         resultBitmap = null
                                         errorMsg = null
                                     },
@@ -205,7 +176,7 @@ fun SettingsScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Close,
-                                        contentDescription = "清除圖片",
+                                        contentDescription = "清除結果",
                                         tint = Color(0xFF333333)
                                     )
                                 }
@@ -218,7 +189,6 @@ fun SettingsScreen(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // prompt 輸入（移除外部的選圖按鈕，改為點擊預覽框啟動）
                             TextField(
                                 value = prompt,
                                 onValueChange = { prompt = it },
@@ -242,19 +212,17 @@ fun SettingsScreen(
 
                             Spacer(modifier = Modifier.width(8.dp))
 
-                            // 生成
                             Button(
-                                enabled = pickedImageUri != null && !isLoading,
+                                enabled = !isLoading,
                                 onClick = {
                                     errorMsg = null
-                                    val uri = pickedImageUri?.let { Uri.parse(it) } ?: return@Button
                                     scope.launch {
                                         isLoading = true
                                         try {
-                                            val generated = uploadAndGenerateOriented(context, uri, prompt)
+                                            val generated = generateMorningImage(context, prompt)
                                             resultBitmap = generated
                                         } catch (t: Throwable) {
-                                            errorMsg = t.message ?: "上傳或生成失敗"
+                                            errorMsg = t.message ?: "生成失敗"
                                         } finally {
                                             isLoading = false
                                         }
@@ -301,58 +269,13 @@ fun SettingsScreen(
         }
     }
 }
-
-// 讀取並校正 EXIF 方向
-private suspend fun decodeBitmapWithOrientation(
+private suspend fun generateMorningImage(
     context: android.content.Context,
-    uri: Uri
-): android.graphics.Bitmap? = withContext(Dispatchers.IO) {
-    try {
-        context.contentResolver.openInputStream(uri)?.use { base ->
-            val bytes = base.readBytes()
-            val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return@withContext null
-            val orientation = ExifInterface(bytes.inputStream()).getAttributeInt(
-                ExifInterface.TAG_ORIENTATION,
-                ExifInterface.ORIENTATION_NORMAL
-            )
-            val matrix = Matrix()
-            when (orientation) {
-                ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
-                ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
-                ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
-                ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.preScale(-1f, 1f)
-                ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.preScale(1f, -1f)
-                ExifInterface.ORIENTATION_TRANSPOSE -> { matrix.postRotate(90f); matrix.preScale(-1f, 1f) }
-                ExifInterface.ORIENTATION_TRANSVERSE -> { matrix.postRotate(270f); matrix.preScale(-1f, 1f) }
-                else -> return@withContext bmp
-            }
-            android.graphics.Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, matrix, true)
-        }
-    } catch (_: Throwable) {
-        null
-    }
-}
-
-// 上傳（先校正方向後再壓成 JPEG 以避免旋轉問題）
-private suspend fun uploadAndGenerateOriented(
-    context: android.content.Context,
-    uri: Uri,
     prompt: String
 ): android.graphics.Bitmap = withContext(Dispatchers.IO) {
-    val oriented = decodeBitmapWithOrientation(context, uri)
-        ?: throw IllegalStateException("無法讀取選擇的圖片")
-
-    val tempFile = File(context.cacheDir, "upload_${System.currentTimeMillis()}.jpg")
-    FileOutputStream(tempFile).use { oriented.compress(android.graphics.Bitmap.CompressFormat.JPEG, 95, it) }
-
     val client = OkHttpClient.Builder().build()
     val multipart = MultipartBody.Builder().setType(MultipartBody.FORM)
-        .addFormDataPart(
-            name = "image",
-            filename = tempFile.name,
-            body = tempFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
-        )
-        .addFormDataPart("prompt", if (prompt.isNotBlank()) prompt else "加上平靜感的早安圖")
+        .addFormDataPart("prompt", if (prompt.isNotBlank()) prompt else "回傳一張圖片")
         .build()
 
     val request = Request.Builder()
@@ -365,13 +288,12 @@ private suspend fun uploadAndGenerateOriented(
         resp.body?.bytes() ?: throw IllegalStateException("空回應")
     }
 
-    val outFile = File(context.cacheDir, "edited_${System.currentTimeMillis()}.png")
+    val outFile = File(context.cacheDir, "morning_${System.currentTimeMillis()}.png")
     FileOutputStream(outFile).use { it.write(bytes) }
 
     BitmapFactory.decodeFile(outFile.absolutePath) ?: throw IllegalStateException("無法解析回傳圖片")
 }
 
-// 儲存到相簿
 private suspend fun saveBitmapToGallery(
     context: android.content.Context,
     bitmap: android.graphics.Bitmap,
@@ -408,10 +330,8 @@ private suspend fun saveBitmapToGallery(
     }
 }
 
-// API endpoint
 private const val GEMINI_IMAGE_API_URL: String = "https://morning-image-api-855188038216.asia-east1.run.app/generate"
 
-// 可重複使用的設定開關項目
 @Composable
 fun SettingItemRow(
     icon: ImageVector,
@@ -452,7 +372,6 @@ fun SettingItemRow(
     }
 }
 
-// 可點擊導覽的設定列
 @Composable
 fun SettingNavRow(
     icon: ImageVector,
