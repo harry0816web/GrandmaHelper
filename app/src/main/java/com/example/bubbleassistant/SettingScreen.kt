@@ -39,6 +39,13 @@ import android.os.Build
 import android.widget.Toast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.font.FontWeight
 
 @Composable
 fun SettingsScreen(
@@ -58,10 +65,27 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "Grandma Helper",
-            style = MaterialTheme.typography.headlineLarge,
-            color = Color.Black
+            text = buildAnnotatedString {
+                withStyle(
+                    style = SpanStyle(
+                        brush = Brush.linearGradient(
+                            colors = listOf(Color(0xFF42A09D), Color(0xFF6BC8C5))
+                        ),
+                        fontWeight = FontWeight.Bold,
+                        shadow = Shadow(
+                            color = Color(0xAA000000), // 更深的黑色陰影
+                            offset = Offset(3f, 3f),   // 陰影位移加大
+                            blurRadius = 6f            // 陰影更模糊明顯
+                        )
+                    )
+                ) {
+                    append("Grandma Helper")
+                }
+            },
+            style = MaterialTheme.typography.headlineLarge
         )
+
+
 
         // Bubble Assistant 開關
         SettingItemRow(
