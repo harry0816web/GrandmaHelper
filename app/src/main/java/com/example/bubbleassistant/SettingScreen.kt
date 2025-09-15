@@ -204,7 +204,7 @@ fun SettingsScreen(
                                 isLoading -> {
                                     CircularProgressIndicator()
                                 }
-                                !errorMsg.isNullOrBlank() -> Text("錯誤：$errorMsg", color = Color.Red)
+                                //!errorMsg.isNullOrBlank() -> Text("錯誤：$errorMsg", color = Color.Red)
                                 else -> {
                                     Text("準備生成圖片…", color = Color.Gray)
                                 }
@@ -249,6 +249,7 @@ fun SettingsScreen(
                                         try {
                                             val generated = generateMorningImage(context, prompt)
                                             resultBitmap = generated
+                                            prompt = ""
                                         } catch (t: Throwable) {
                                             errorMsg = t.message ?: "生成失敗"
                                         } finally {
