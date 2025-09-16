@@ -100,7 +100,7 @@ fun MorningCard() {
                     // 結果顯示區（正方形）
                     Box(
                         modifier = Modifier
-                            .size(200.dp)
+                            .size(180.dp)
                             .background(Color(0xFFE2F4F3)),
                         contentAlignment = Alignment.Center
                     ) {
@@ -129,7 +129,10 @@ fun MorningCard() {
                         TextField(
                             value = prompt,
                             onValueChange = { prompt = it },
-                            placeholder = { Text("想要哪種早安圖") },
+                            placeholder = { Text(
+                                text = "想要哪種早安圖",
+                                color = Color.LightGray
+                            ) },
                             singleLine = true,
                             modifier = Modifier.weight(1f).heightIn(min = 56.dp),
                             colors = TextFieldDefaults.colors(
