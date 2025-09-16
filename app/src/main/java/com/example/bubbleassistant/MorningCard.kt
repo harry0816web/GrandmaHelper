@@ -100,7 +100,7 @@ fun MorningCard() {
                     // 結果顯示區（正方形）
                     Box(
                         modifier = Modifier
-                            .size(180.dp)
+                            .size(150.dp)
                             .background(Color(0xFFE2F4F3)),
                         contentAlignment = Alignment.Center
                     ) {
