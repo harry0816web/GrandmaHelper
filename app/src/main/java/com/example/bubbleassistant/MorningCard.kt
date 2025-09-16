@@ -189,7 +189,7 @@ fun MorningCard() {
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF42A09D))
                     ) {
-                        Text("另存圖片", color = Color.White)
+                        Text("存到相簿", color = Color.White)
                     }
 
                     if (!errorMsg.isNullOrBlank()) {
