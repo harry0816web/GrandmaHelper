@@ -27,7 +27,7 @@ object OverlayAgent {
         OkHttpClient.Builder()
             .addInterceptor(logger)
             .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
             .build()
     }
 
