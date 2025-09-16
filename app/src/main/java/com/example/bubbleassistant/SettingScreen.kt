@@ -244,12 +244,13 @@ fun SettingsScreen(
                                 enabled = !isLoading,
                                 onClick = {
                                     errorMsg = null
+                                    val userPrompt = prompt
+                                    prompt = ""
                                     scope.launch {
                                         isLoading = true
                                         try {
-                                            val generated = generateMorningImage(context, prompt)
+                                            val generated = generateMorningImage(context, userPrompt)
                                             resultBitmap = generated
-                                            prompt = ""
                                         } catch (t: Throwable) {
                                             errorMsg = t.message ?: "生成失敗"
                                         } finally {
