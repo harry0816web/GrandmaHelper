@@ -94,13 +94,16 @@ fun MorningCard() {
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     // 結果顯示區（正方形）
                     Box(
                         modifier = Modifier
-                            .size(150.dp)
+                            .aspectRatio(1f)
+                            .weight(1f)
                             .background(Color(0xFFE2F4F3)),
                         contentAlignment = Alignment.Center
                     ) {
