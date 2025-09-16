@@ -182,7 +182,7 @@ fun MorningCard() {
                                 )
                                 Toast.makeText(
                                     context,
-                                    if (ok) "已另存到相簿/Pictures/GrandmaHelper" else "儲存失敗",
+                                    if (ok) "已存到相簿/Pictures/GrandmaHelper" else "儲存失敗",
                                     Toast.LENGTH_SHORT
                                 ).show()
                             }

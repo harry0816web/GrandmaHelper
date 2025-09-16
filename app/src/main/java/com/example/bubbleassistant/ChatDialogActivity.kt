@@ -291,7 +291,7 @@ class ChatDialogActivity : Activity() {
             stepView?.postDelayed({
                 dismissOverlay()
                 OverlayAgent.taskActive = false
-            }, 2000)
+            }, 3000)
         }
     }
 
@@ -380,7 +380,7 @@ class ChatDialogActivity : Activity() {
     }
 
     // === 新增：顯示訊息並自動關閉（用於「沒有明確目的」） ===
-    private fun showAutoDismiss(message: String, delayMs: Long = 2000) {
+    private fun showAutoDismiss(message: String, delayMs: Long = 3000) {
         val tv = stepView?.findViewById<TextView>(R.id.tv_step) ?: return
         tv.text = message
         stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = false
