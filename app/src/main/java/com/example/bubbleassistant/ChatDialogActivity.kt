@@ -108,17 +108,33 @@ class ChatDialogActivity : Activity() {
             // 主流程
             OverlayAgent.scope.launch {
                 // 1) 先監控（overlay 隱藏中）
+                // 1. 等待 ScreenMonitor 偵測到 LINE 視窗（新鮮度 < 800ms），最長 2s
+                val lineReady = withContext(Dispatchers.IO) {
+                    ScreenMonitor.waitForLineWindow(timeoutMs = 2000L, pollMs = 50L, freshnessMs = 800L)
+                }
+                android.util.Log.i("ChatDialog", "是否偵測到 LINE 視窗: $lineReady")
+
                 val screenInfo = runWithOverlayHiddenDuringMonitoring { getRealTimeScreenInfo() }
 
                 // 2) 監控完成後，立刻顯示「請稍候…」
                 withContext(Dispatchers.Main) { showPleaseWait() }
 
-                // 3) 再呼叫 API
+                // 3) 再呼叫 API（在送出前再等待一次，確保拿到 LINE 深層掃描）
+                var finalScreenInfo = screenInfo
+                val waitDeadline = System.currentTimeMillis() + 2000L
+                while (!isLikelyLineSummary(finalScreenInfo) && System.currentTimeMillis() < waitDeadline) {
+                    try {
+                        finalScreenInfo = withContext(Dispatchers.IO) { getRealTimeScreenInfo() }
+                    } catch (_: Throwable) {}
+                    if (isLikelyLineSummary(finalScreenInfo)) break
+                    try { kotlinx.coroutines.delay(150) } catch (_: Throwable) {}
+                }
+
                 val serverMessage = withContext(Dispatchers.IO) {
                     OverlayAgent.callAssistantApi(
                         userMsg = initialUserMsg,
                         goal = initialUserMsg,
-                        summaryText = screenInfo,
+                        summaryText = finalScreenInfo,
                         timestampMs = System.currentTimeMillis()
                     )
                 }.trim()
@@ -406,10 +422,32 @@ class ChatDialogActivity : Activity() {
     private fun getRealTimeScreenInfo(): String {
         try { ScreenMonitor.activateMonitoring() } catch (_: Throwable) {}
         try {
-            val forced = ScreenMonitor.forceRefreshScreenInfo()
-            if (forced.isNotBlank() && !forced.contains("Waiting for elements")) {
+            val deadline = System.currentTimeMillis() + 1500L
+            var lastCandidate = ""
+            while (System.currentTimeMillis() < deadline) {
+                val forced = try { ScreenMonitor.forceRefreshScreenInfo() } catch (_: Throwable) { "" }
+                if (forced.isNotBlank()) lastCandidate = forced
+                if (isLikelyLineSummary(forced)) {
+                    try { ScreenMonitor.deactivateMonitoring() } catch (_: Throwable) {}
+                    return forced
+                }
+
+                val http = try {
+                    val url = "http://127.0.0.1:${ScreenInfoServer.DEFAULT_PORT}/screen-info"
+                    val resp = httpClient.newCall(Request.Builder().url(url).build()).execute()
+                    if (resp.isSuccessful) org.json.JSONObject(resp.body?.string().orEmpty()).optString("summaryText", "") else ""
+                } catch (_: Throwable) { "" }
+                if (http.isNotBlank()) lastCandidate = http
+                if (isLikelyLineSummary(http)) {
+                    try { ScreenMonitor.deactivateMonitoring() } catch (_: Throwable) {}
+                    return http
+                }
+
+                try { Thread.sleep(150) } catch (_: Throwable) {}
+            }
+            if (isLikelyLineSummary(lastCandidate)) {
                 try { ScreenMonitor.deactivateMonitoring() } catch (_: Throwable) {}
-                return forced
+                return lastCandidate
             }
         } catch (_: Throwable) {}
 
@@ -441,6 +479,19 @@ class ChatDialogActivity : Activity() {
 
         try { ScreenMonitor.deactivateMonitoring() } catch (_: Throwable) {}
         return "無法獲取螢幕資訊"
+    }
+
+    private fun isLikelyLineSummary(text: String): Boolean {
+        if (text.isBlank()) return false
+        if (text.startsWith("Other App:")) return false
+        if (text.contains("Waiting for elements")) return false
+        val hints = listOf(
+            "jp.naver.line.android:id/",
+            "LINE 頁面信息",
+            "聊天", "主頁",
+            "bnb_button_text", "main_tab_search_bar", "home_tab_recycler_view"
+        )
+        return hints.any { text.contains(it) }
     }
 
     private fun applyShortcutTexts() {

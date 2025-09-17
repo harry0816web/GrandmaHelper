@@ -39,6 +39,7 @@ class ScreenMonitor : AccessibilityService() {
     // 靜態引用，供其他類別直接訪問
     companion object {
         private var instance: ScreenMonitor? = null
+        private val lineWindowDetectedAtMs = java.util.concurrent.atomic.AtomicLong(0)
         
         fun getInstance(): ScreenMonitor? = instance
         
@@ -75,6 +76,20 @@ class ScreenMonitor : AccessibilityService() {
                     monitor.mainHandler.post { monitor.removeOverlay() }
                 }
             }
+        }
+
+        fun markLineWindowDetected() {
+            lineWindowDetectedAtMs.set(System.currentTimeMillis())
+        }
+
+        fun waitForLineWindow(timeoutMs: Long, pollMs: Long = 50L, freshnessMs: Long = 800L): Boolean {
+            val deadline = System.currentTimeMillis() + timeoutMs
+            while (System.currentTimeMillis() < deadline) {
+                val age = System.currentTimeMillis() - lineWindowDetectedAtMs.get()
+                if (age in 0..freshnessMs) return true
+                try { Thread.sleep(pollMs) } catch (_: Throwable) {}
+            }
+            return false
         }
         
         fun getLatestScreenInfo(): String {
@@ -1237,6 +1252,7 @@ class ScreenMonitor : AccessibilityService() {
                         // 優先處理 LINE 視窗
                         if (packageName == "jp.naver.line.android") {
                             Log.d(TAG, "找到 LINE 視窗，進行深度掃描")
+                            markLineWindowDetected()
                             lineWindowFound = true
                             val lineContentSummary = buildLineSpecificSummary(root)
                             if (lineContentSummary.isNotEmpty() && !lineContentSummary.contains("No LINE content detected")) {
