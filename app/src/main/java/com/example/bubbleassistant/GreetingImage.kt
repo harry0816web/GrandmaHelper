@@ -31,7 +31,7 @@ import java.io.FileOutputStream
 import androidx.compose.runtime.saveable.rememberSaveable
 
 @Composable
-fun MorningCard() {
+fun GreetingImage() {
     val context = LocalContext.current
     var expanded by remember { mutableStateOf(false) }
     var prompt by rememberSaveable { mutableStateOf("") }

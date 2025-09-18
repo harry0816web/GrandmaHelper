@@ -67,11 +67,11 @@ fun TutorialScreen(
             "完成步驟就打勾，問題輕鬆解決！",
             R.drawable.tutorial_step4
         ),
-//        TutorialPage(
-//            "查看解答",
-//            "系統將回覆結果，問題輕鬆解決！",
-//            R.drawable.tutorial_step5
-//        )
+        TutorialPage(
+            "隱藏功能-每日早安圖！",
+            "隨心輸入關鍵字，每天接收不重複",
+            R.drawable.tutorial_step5
+        )
     )
 
 
