@@ -101,8 +101,6 @@ fun SettingsScreen(
 
         // 使用教學
         SettingNavRow(icon = Icons.Default.Info, title = "App 使用教學", onClick = onNavigateTutorial)
-
-        GreetingImage()
     }
 }
 

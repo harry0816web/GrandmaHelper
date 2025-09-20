@@ -15,6 +15,9 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -108,46 +111,89 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                var selectedTab by remember { mutableStateOf(0) }
+
                 Scaffold(
-                    containerColor = Color(0xFFE2F4F3)
-                ) { innerPadding ->
-                    SettingsScreen(
-                        modifier = Modifier.padding(innerPadding),
-                        bubbleOn = bubbleOn,
-                        onBubbleToggle = { checked ->
-                            if (checked) {
-                                if (!Settings.canDrawOverlays(this@MainActivity)) {
-                                    Toast.makeText(
-                                        this@MainActivity,
-                                        "請先允許懸浮窗權限",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                    val intent = Intent(
-                                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                        Uri.parse("package:$packageName")
-                                    )
-                                    startActivity(intent)
-                                } else {
-                                    startService(Intent(this@MainActivity, BubbleService::class.java))
-                                    bubbleOnState?.value = true
-                                    if (!isAccessibilityServiceEnabled()) {
-                                        showAccessibilityGuide.value = true
-                                    }
-                                }
-                            } else {
-                                stopService(Intent(this@MainActivity, BubbleService::class.java))
-                                bubbleOnState?.value = false
-                            }
-                        },
-                        voiceOn = voiceOn,
-                        onVoiceToggle = { voiceOn = it }, // 更新語音開關
-                        onNavigateTutorial = {
-                            startActivity(Intent(this@MainActivity, TutorialActivity::class.java))
-                        },
-                        onNavigateFeatures = {
-                            startActivity(Intent(this@MainActivity, FeaturesActivity::class.java))
+                    containerColor = Color(0xFFE2F4F3),
+                    bottomBar = {
+                        NavigationBar {
+                            NavigationBarItem(
+                                selected = selectedTab == 0,
+                                onClick = { selectedTab = 0 },
+                                label = { Text("設定") },
+                                icon = { Icon(Icons.Default.Settings, contentDescription = null) }
+                            )
+                            NavigationBarItem(
+                                selected = selectedTab == 1,
+                                onClick = { selectedTab = 1 },
+                                label = { Text("早安圖") },
+                                icon = { Icon(Icons.Default.Image, contentDescription = null) }
+                            )
                         }
-                    )
+                    }
+                ) { innerPadding ->
+                    when (selectedTab) {
+                        0 -> SettingsScreen(
+                            modifier = Modifier.padding(innerPadding),
+                            bubbleOn = bubbleOn,
+                            onBubbleToggle = { checked ->
+                                if (checked) {
+                                    if (!Settings.canDrawOverlays(this@MainActivity)) {
+                                        Toast.makeText(
+                                            this@MainActivity,
+                                            "請先允許懸浮窗權限",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                        val intent = Intent(
+                                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                            Uri.parse("package:$packageName")
+                                        )
+                                        startActivity(intent)
+                                    } else {
+                                        startService(
+                                            Intent(
+                                                this@MainActivity,
+                                                BubbleService::class.java
+                                            )
+                                        )
+                                        bubbleOnState?.value = true
+                                        if (!isAccessibilityServiceEnabled()) {
+                                            showAccessibilityGuide.value = true
+                                        }
+                                    }
+                                } else {
+                                    stopService(
+                                        Intent(
+                                            this@MainActivity,
+                                            BubbleService::class.java
+                                        )
+                                    )
+                                    bubbleOnState?.value = false
+                                }
+                            },
+                            voiceOn = voiceOn,
+                            onVoiceToggle = { voiceOn = it }, // 更新語音開關
+                            onNavigateTutorial = {
+                                startActivity(
+                                    Intent(
+                                        this@MainActivity,
+                                        TutorialActivity::class.java
+                                    )
+                                )
+                            },
+                            onNavigateFeatures = {
+                                startActivity(
+                                    Intent(
+                                        this@MainActivity,
+                                        FeaturesActivity::class.java
+                                    )
+                                )
+                            }
+                        )
+                        1 -> GreetingImage(
+                            modifier = Modifier.padding(innerPadding)
+                        )
+                    }
                 }
 
                 val dialogTitle = "需要開啟協助工具服務"
@@ -279,5 +325,20 @@ fun SettingsScreen(
             Text("Bubble Assistant")
             Switch(checked = bubbleOn, onCheckedChange = onBubbleToggle)
         }
+    }
+}
+
+// -------------------------
+// 早安圖頁面 Composable
+// -------------------------
+@Composable
+fun GreetingImage(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.Center
+    ) {
+        GreetingImage()
     }
 }
