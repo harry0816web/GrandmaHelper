@@ -6,11 +6,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.View
-import android.view.WindowInsets
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -25,22 +23,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 
-// -------------------------
-// 全域函式與 Composable
-// -------------------------
-
-
-// 簡單自訂 Theme（可換成專案 Theme）
 @Composable
 fun BubbleAssistantTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        content = content
-    )
+    MaterialTheme(content = content)
 }
 
-// -------------------------
-// MainActivity 類別
-// -------------------------
 class MainActivity : ComponentActivity() {
 
     private var bubbleOnState: MutableState<Boolean>? = null
@@ -60,13 +47,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        window?.let {
-            it.decorView.systemUiVisibility =
-                it.decorView.systemUiVisibility or
+        // ✅ 改掉 let，避免 it 解析問題
+        val decorView = window?.decorView
+        if (decorView != null) {
+            decorView.systemUiVisibility =
+                decorView.systemUiVisibility or
                         View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
                         View.SYSTEM_UI_FLAG_LAYOUT_STABLE
         }
-
 
         ttsManager = TextToSpeechManager.getInstance(this)
 
@@ -93,14 +81,19 @@ class MainActivity : ComponentActivity() {
             true
         } else false
 
-        // Compose UI
+        // === 建立早安圖 ViewModel，啟動時自動生成一次 ===
+        val morningVm = MorningImageViewModel(applicationContext)
+
         setContent {
             BubbleAssistantTheme {
+                // App 一進來自動生成一次（只跑一次）
+                LaunchedEffect(Unit) { morningVm.generateOnce() }
+
                 var bubbleOn by remember { mutableStateOf(defaultOn) }
                 bubbleOnState = remember { mutableStateOf(bubbleOn) }
                 bubbleOn = bubbleOnState!!.value
 
-                var voiceOn by remember { mutableStateOf(false) } // 語音開關狀態
+                var voiceOn by remember { mutableStateOf(false) } // 若未使用可之後移除
 
                 val showAccessibilityGuide = remember { mutableStateOf(false) }
                 accessibilityGuideState = showAccessibilityGuide
@@ -116,23 +109,14 @@ class MainActivity : ComponentActivity() {
                 Scaffold(
                     containerColor = Color(0xFFE2F4F3),
                     bottomBar = {
-                        NavigationBar(
-                            containerColor = Color(0xFF42A09D)
-                        ) {
+                        NavigationBar(containerColor = Color(0xFF42A09D)) {
                             NavigationBarItem(
                                 selected = selectedTab == 0,
                                 onClick = { selectedTab = 0 },
-                                label = {
-                                    Text("設定")
-                                },
-                                icon = {
-                                    Icon(
-                                        Icons.Default.Settings,
-                                        contentDescription = null,
-                                    )
-                                },
+                                label = { Text("設定") },
+                                icon = { Icon(Icons.Default.Settings, contentDescription = null) },
                                 colors = NavigationBarItemDefaults.colors(
-                                    indicatorColor = Color(0xFFE2F4F3),      // ← 淺綠色底色
+                                    indicatorColor = Color(0xFFE2F4F3),
                                     selectedIconColor = Color(0xFF42A09D),
                                     unselectedIconColor = Color.White,
                                     selectedTextColor = Color.White,
@@ -142,17 +126,10 @@ class MainActivity : ComponentActivity() {
                             NavigationBarItem(
                                 selected = selectedTab == 1,
                                 onClick = { selectedTab = 1 },
-                                label = {
-                                    Text("早安圖")
-                                },
-                                icon = {
-                                    Icon(
-                                        Icons.Default.Image,
-                                        contentDescription = null,
-                                    )
-                                },
+                                label = { Text("早安圖") },
+                                icon = { Icon(Icons.Default.Image, contentDescription = null) },
                                 colors = NavigationBarItemDefaults.colors(
-                                    indicatorColor = Color(0xFFE2F4F3),      // ← 淺綠色底色
+                                    indicatorColor = Color(0xFFE2F4F3),
                                     selectedIconColor = Color(0xFF42A09D),
                                     unselectedIconColor = Color.White,
                                     selectedTextColor = Color.White,
@@ -163,7 +140,7 @@ class MainActivity : ComponentActivity() {
                     }
                 ) { innerPadding ->
                     when (selectedTab) {
-                        0 -> SettingsScreen(
+                        0 -> SettingsScreen( // ⚠️ 這個來自你的 SettingScreen.kt
                             modifier = Modifier.padding(innerPadding),
                             bubbleOn = bubbleOn,
                             onBubbleToggle = { checked ->
@@ -180,47 +157,28 @@ class MainActivity : ComponentActivity() {
                                         )
                                         startActivity(intent)
                                     } else {
-                                        startService(
-                                            Intent(
-                                                this@MainActivity,
-                                                BubbleService::class.java
-                                            )
-                                        )
+                                        startService(Intent(this@MainActivity, BubbleService::class.java))
                                         bubbleOnState?.value = true
                                         if (!isAccessibilityServiceEnabled()) {
                                             showAccessibilityGuide.value = true
                                         }
                                     }
                                 } else {
-                                    stopService(
-                                        Intent(
-                                            this@MainActivity,
-                                            BubbleService::class.java
-                                        )
-                                    )
+                                    stopService(Intent(this@MainActivity, BubbleService::class.java))
                                     bubbleOnState?.value = false
                                 }
                             },
                             voiceOn = voiceOn,
-                            onVoiceToggle = { voiceOn = it }, // 更新語音開關
+                            onVoiceToggle = { voiceOn = it },
                             onNavigateTutorial = {
-                                startActivity(
-                                    Intent(
-                                        this@MainActivity,
-                                        TutorialActivity::class.java
-                                    )
-                                )
+                                startActivity(Intent(this@MainActivity, TutorialActivity::class.java))
                             },
                             onNavigateFeatures = {
-                                startActivity(
-                                    Intent(
-                                        this@MainActivity,
-                                        FeaturesActivity::class.java
-                                    )
-                                )
+                                startActivity(Intent(this@MainActivity, FeaturesActivity::class.java))
                             }
                         )
-                        1 -> GreetingImage(
+                        1 -> GreetingImageScreen( // 使用新的畫面（僅讀 VM 狀態）
+                            vm = morningVm,
                             modifier = Modifier.padding(innerPadding)
                         )
                     }
@@ -247,19 +205,9 @@ class MainActivity : ComponentActivity() {
                             ttsManager.stop()
                             showAccessibilityGuide.value = false
                         },
-                        title = {
-                            Text(
-                                text = dialogTitle,
-                                color = Color(0xFF000000) // 黑色文字
-                            )
-                        },
-                        text = {
-                            Text(
-                                text = dialogText,
-                                color = Color(0xFF000000)
-                            )
-                        },
-                        containerColor = Color(0xFFE2F4F3), // 背景色
+                        title = { Text(text = dialogTitle, color = Color(0xFF000000)) },
+                        text = { Text(text = dialogText, color = Color(0xFF000000)) },
+                        containerColor = Color(0xFFE2F4F3),
                         confirmButton = {
                             TextButton(
                                 onClick = {
@@ -268,12 +216,7 @@ class MainActivity : ComponentActivity() {
                                     val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
                                     startActivity(intent)
                                 }
-                            ) {
-                                Text(
-                                    "前往設定",
-                                    color = Color(0xFF42A09D) // 主色
-                                )
-                            }
+                            ) { Text("前往設定", color = Color(0xFF42A09D)) }
                         },
                         dismissButton = {
                             TextButton(
@@ -281,12 +224,7 @@ class MainActivity : ComponentActivity() {
                                     ttsManager.stop()
                                     showAccessibilityGuide.value = false
                                 }
-                            ) {
-                                Text(
-                                    "稍後",
-                                    color = Color(0xFF42A09D)
-                                )
-                            }
+                            ) { Text("稍後", color = Color(0xFF42A09D)) }
                         }
                     )
                 }
@@ -331,44 +269,5 @@ class MainActivity : ComponentActivity() {
             return enabled?.split(':')?.any { it.equals(service, ignoreCase = true) } == true
         }
         return false
-    }
-}
-
-// -------------------------
-// Compose UI: 設定頁面
-// -------------------------
-@Composable
-fun SettingsScreen(
-    modifier: Modifier = Modifier,
-    bubbleOn: Boolean,
-    onBubbleToggle: (Boolean) -> Unit
-) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text("Bubble Assistant")
-            Switch(checked = bubbleOn, onCheckedChange = onBubbleToggle)
-        }
-    }
-}
-
-// -------------------------
-// 早安圖頁面 Composable
-// -------------------------
-@Composable
-fun GreetingImage(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.Center
-    ) {
-        GreetingImage()
     }
 }
