@@ -299,36 +299,38 @@ class ScreenMonitor : AccessibilityService() {
 
     // --- Overlay helpers ---
     private fun setupOverlay() {
-        try {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                Log.w(TAG, "Overlay not supported on this Android version (< Q). Skipping overlay setup.")
-                return
-            }
-            windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        // 已停用 overlay 功能，不再創建監控提示視窗
+        Log.d(TAG, "Overlay setup disabled - no monitoring indicator will be shown")
+        // try {
+        //     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+        //         Log.w(TAG, "Overlay not supported on this Android version (< Q). Skipping overlay setup.")
+        //         return
+        //     }
+        //     windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
 
-            val inflater = LayoutInflater.from(this)
-            val view = inflater.inflate(R.layout.overlay_view, null)
-            val textView = view.findViewById<TextView>(R.id.tvContent)
+        //     val inflater = LayoutInflater.from(this)
+        //     val view = inflater.inflate(R.layout.overlay_view, null)
+        //     val textView = view.findViewById<TextView>(R.id.tvContent)
 
-            val layoutParams = WindowManager.LayoutParams(
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
-                PixelFormat.TRANSLUCENT
-            )
-            layoutParams.gravity = Gravity.TOP or Gravity.END
-            layoutParams.x = 8
-            layoutParams.y = 50
+        //     val layoutParams = WindowManager.LayoutParams(
+        //         WindowManager.LayoutParams.WRAP_CONTENT,
+        //         WindowManager.LayoutParams.WRAP_CONTENT,
+        //         WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+        //         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+        //                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+        //                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+        //         PixelFormat.TRANSLUCENT
+        //     )
+        //     layoutParams.gravity = Gravity.TOP or Gravity.END
+        //     layoutParams.x = 8
+        //     layoutParams.y = 50
 
-            overlayView = view
-            overlayTextView = textView
-            windowManager.addView(view, layoutParams)
-        } catch (t: Throwable) {
-            Log.e(TAG, "Failed to setup overlay", t)
-        }
+        //     overlayView = view
+        //     overlayTextView = textView
+        //     windowManager.addView(view, layoutParams)
+        // } catch (t: Throwable) {
+        //     Log.e(TAG, "Failed to setup overlay", t)
+        // }
     }
 
     private fun removeOverlay() {
@@ -344,16 +346,17 @@ class ScreenMonitor : AccessibilityService() {
     }
 
     private fun updateOverlay(text: String) {
-        if (!onDemandActive.get()) return
-        mainHandler.post {
-            if (overlayView == null) setupOverlay()
-            val summary = when {
-                text.contains("LINE app detected") -> "LINE 監控中"
-                text.contains("Captured elements: 0") -> "等待中"
-                else -> "監控中"
-            }
-            overlayTextView?.text = summary
-        }
+        // 已停用 overlay 顯示，不再顯示監控提示
+        // if (!onDemandActive.get()) return
+        // mainHandler.post {
+        //     if (overlayView == null) setupOverlay()
+        //     val summary = when {
+        //         text.contains("LINE app detected") -> "LINE 監控中"
+        //         text.contains("Captured elements: 0") -> "等待中"
+        //         else -> "監控中"
+        //     }
+        //     overlayTextView?.text = summary
+        // }
     }
 
     private fun updateLatestScreenInfo(summary: String) {
