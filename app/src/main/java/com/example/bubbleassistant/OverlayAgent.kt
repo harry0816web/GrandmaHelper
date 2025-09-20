@@ -23,7 +23,7 @@ object OverlayAgent {
     var taskActive: Boolean = false
     val scope: CoroutineScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
-    private val apiUrl = "https://app-api-service-855188038216.asia-east1.run.app"
+    private val apiUrl = "https://app-api-service2-855188038216.asia-east1.run.app"
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
     private val httpClient: OkHttpClient by lazy {
         val logger = HttpLoggingInterceptor { m -> Log.d("OkHttp", m) }
