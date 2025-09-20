@@ -116,18 +116,42 @@ class MainActivity : ComponentActivity() {
                 Scaffold(
                     containerColor = Color(0xFFE2F4F3),
                     bottomBar = {
-                        NavigationBar {
+                        NavigationBar(
+                            containerColor = Color(0xFF42A09D)
+                        ) {
                             NavigationBarItem(
                                 selected = selectedTab == 0,
                                 onClick = { selectedTab = 0 },
-                                label = { Text("設定") },
-                                icon = { Icon(Icons.Default.Settings, contentDescription = null) }
+                                label = {
+                                    Text(
+                                        "設定",
+                                        color = if (selectedTab == 0) Color(0xFFE2F4F3) else Color.White
+                                    )
+                                },
+                                icon = {
+                                    Icon(
+                                        Icons.Default.Settings,
+                                        contentDescription = null,
+                                        tint = if (selectedTab == 0) Color(0xFFE2F4F3) else Color.White
+                                    )
+                                }
                             )
                             NavigationBarItem(
                                 selected = selectedTab == 1,
                                 onClick = { selectedTab = 1 },
-                                label = { Text("早安圖") },
-                                icon = { Icon(Icons.Default.Image, contentDescription = null) }
+                                label = {
+                                    Text(
+                                        "早安圖",
+                                        color = if (selectedTab == 1) Color(0xFFE2F4F3) else Color.White
+                                    )
+                                },
+                                icon = {
+                                    Icon(
+                                        Icons.Default.Image,
+                                        contentDescription = null,
+                                        tint = if (selectedTab == 1) Color(0xFFE2F4F3) else Color.White
+                                    )
+                                }
                             )
                         }
                     }
