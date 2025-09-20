@@ -40,16 +40,16 @@ GrandmaHelper is an Android application that helps seniors navigate smartphones 
 
 The app is powered by three cloud-based services that handle AI processing and monitoring:
 
-### 1. LINE Support API 📞
+### 1. LINE Support API 
 - **Purpose**: Main AI brain that processes user requests and provides guidance
 
-### 2. Greeting Image Service 🎨
+### 2. Greeting Image Service 
 - **Purpose**: Creates personalized morning greeting images with Chinese text
 
-### 3. Status Monitor 📊
+### 3. Status Monitor 
 - **Purpose**: Monitors the health and performance of all services
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 ### Android App
 - **Language**: Kotlin
@@ -68,7 +68,7 @@ The app is powered by three cloud-based services that handle AI processing and m
 - **Cloud Platform**: Google Cloud Run
 - **Infrastructure**: Docker containers with automated deployment
 
-## 📦 Project Structure
+## Project Structure
 
 ```
 GrandmaHelper/
@@ -100,7 +100,7 @@ GrandmaHelper/
 └── README.md                    # This file
 ```
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 - **Android Development**: Android Studio, SDK 24+
