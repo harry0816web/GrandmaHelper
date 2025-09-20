@@ -101,8 +101,6 @@ fun SettingsScreen(
 
         // 使用教學
         SettingNavRow(icon = Icons.Default.Info, title = "App 使用教學", onClick = onNavigateTutorial)
-
-        GreetingImage()
     }
 }
 
@@ -118,7 +116,8 @@ fun SettingItemRow(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color.White, shape = MaterialTheme.shapes.medium)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .height(40.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
@@ -159,7 +158,8 @@ fun SettingNavRow(
             .fillMaxWidth()
             .clickable { onClick() }
             .background(Color.White, shape = MaterialTheme.shapes.medium)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .height(40.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
