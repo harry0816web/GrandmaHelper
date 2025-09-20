@@ -5,4 +5,8 @@
         <item name="android:backgroundDimAmount">0.5</item>
         <item name="android:windowIsFloating">true</item>
     </style>
+    
+    <style name="CustomCheckBoxStyle" parent="Widget.AppCompat.CompoundButton.CheckBox">
+        <item name="android:button">@drawable/custom_checkbox</item>
+    </style>
 </resources>
