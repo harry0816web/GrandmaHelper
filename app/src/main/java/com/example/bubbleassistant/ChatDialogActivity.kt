@@ -1,4 +1,5 @@
 package com.example.bubbleassistant
+
 import android.app.Activity
 import android.graphics.PixelFormat
 import android.graphics.Rect
@@ -17,6 +18,7 @@ import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import android.content.Context
+import android.content.Intent
 import android.widget.Button
 
 class ChatDialogActivity : Activity() {
@@ -48,14 +50,41 @@ class ChatDialogActivity : Activity() {
             .build()
     }
 
-    // === TTS Manager ===
     private lateinit var ttsManager: TextToSpeechManager
 
-    // ==== 拖曳狀態 (新增) ====
     private var dragStartY: Int = 0
     private var dragTouchStartY: Float = 0f
     private var isDragging: Boolean = false
     private val touchSlop: Int by lazy { ViewConfiguration.get(this).scaledTouchSlop }
+
+    companion object {
+        const val ACTION_SHOW_CIRCLE = "com.example.bubbleassistant.SHOW_CIRCLE"
+        const val ACTION_HIDE_CIRCLE = "com.example.bubbleassistant.HIDE_CIRCLE"
+    }
+
+    private fun parseAssistantJson(raw: String): Pair<String, String?> {
+        return try {
+            val obj = JSONObject(raw)
+            val msg = obj.optString("message", raw.ifBlank { "(空回應)" })
+            val bounds = obj.optString("bounds", null)?.takeIf { it.isNotBlank() }
+            msg to bounds
+        } catch (_: Exception) {
+            raw to null
+        }
+    }
+
+    private fun broadcastShowCircle(bounds: String?, padding: Float = 20f) {
+        if (bounds.isNullOrBlank()) return
+        sendBroadcast(Intent(ACTION_SHOW_CIRCLE).apply {
+            setPackage(packageName)
+            putExtra("bounds", bounds)
+            putExtra("padding", padding)
+        })
+    }
+
+    private fun broadcastHideCircle() {
+        sendBroadcast(Intent(ACTION_HIDE_CIRCLE).apply { setPackage(packageName) })
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -107,8 +136,8 @@ class ChatDialogActivity : Activity() {
 
             // 主流程
             OverlayAgent.scope.launch {
-                // 1) 先監控（overlay 隱藏中）
-                // 1. 等待 ScreenMonitor 偵測到 LINE 視窗（新鮮度 < 800ms），最長 2s
+                withContext(Dispatchers.Main) { broadcastHideCircle() }
+
                 val lineReady = withContext(Dispatchers.IO) {
                     ScreenMonitor.waitForLineWindow(timeoutMs = 2000L, pollMs = 50L, freshnessMs = 800L)
                 }
@@ -116,10 +145,8 @@ class ChatDialogActivity : Activity() {
 
                 val screenInfo = runWithOverlayHiddenDuringMonitoring { getRealTimeScreenInfo() }
 
-                // 2) 監控完成後，立刻顯示「請稍候…」
                 withContext(Dispatchers.Main) { showPleaseWait() }
 
-                // 3) 再呼叫 API（在送出前再等待一次，確保拿到 LINE 深層掃描）
                 var finalScreenInfo = screenInfo
                 val waitDeadline = System.currentTimeMillis() + 2000L
                 while (!isLikelyLineSummary(finalScreenInfo) && System.currentTimeMillis() < waitDeadline) {
@@ -130,33 +157,40 @@ class ChatDialogActivity : Activity() {
                     try { kotlinx.coroutines.delay(150) } catch (_: Throwable) {}
                 }
 
-                val serverMessage = withContext(Dispatchers.IO) {
+                val result = withContext(Dispatchers.IO) {
                     OverlayAgent.callAssistantApi(
                         userMsg = initialUserMsg,
                         goal = initialUserMsg,
                         summaryText = finalScreenInfo,
                         timestampMs = System.currentTimeMillis()
                     )
-                }.trim()
+                }
+                val assistantMsg = result.message
+                val boundsStr = result.bounds
 
-                // 4) 收到回覆後更新 overlay
+
                 withContext(Dispatchers.Main) {
                     when {
-                        serverMessage.contains("沒有明確目的") -> {
+                        assistantMsg.contains("沒有明確目的") -> {
                             val msg = "您的輸入沒有明確目的，請告訴我您想要做到的事情喔!"
                             steps = mutableListOf(msg)
                             updateStepText()
-                            showAutoDismiss(msg) // 自動關閉，且不顯示勾選
+                            broadcastHideCircle()
+                            showAutoDismiss(msg)
                         }
-                        serverMessage.contains("恭喜成功") -> {
+                        assistantMsg.contains("恭喜成功") -> {
                             steps = mutableListOf("🎉 恭喜成功！")
                             updateStepText()
+                            broadcastHideCircle()
                             showSuccessThenDismiss()
                         }
                         else -> {
-                            steps = mutableListOf(serverMessage.ifBlank { "請依畫面提示操作下一步" })
+                            steps = mutableListOf(assistantMsg.ifBlank { "請依畫面提示操作下一步" })
                             updateStepText()
                             stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = true
+
+                            // 有座標就畫圈，沒有就隱藏
+                            if (!boundsStr.isNullOrBlank()) broadcastShowCircle(boundsStr) else broadcastHideCircle()
                         }
                     }
                     isBusy = false
@@ -197,7 +231,6 @@ class ChatDialogActivity : Activity() {
         sendButton.performClick()
     }
 
-    // ===== Overlay：顯示請稍候 =====
     private fun showPleaseWait() {
         steps = mutableListOf("請稍候…")
         showStepOverlay()
@@ -205,13 +238,12 @@ class ChatDialogActivity : Activity() {
         stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = false
     }
 
-    // 監控期間只把 overlay 隱藏；結束後不自動改回來，讓呼叫端決定何時顯示
     private suspend fun <T> runWithOverlayHiddenDuringMonitoring(block: suspend () -> T): T {
         return try {
             withContext(Dispatchers.Main) { stepView?.visibility = View.GONE }
             block()
         } finally {
-            // 不在這裡自動顯示或改文字
+
         }
     }
 
@@ -238,7 +270,7 @@ class ChatDialogActivity : Activity() {
             }
             wm?.addView(stepView, stepLp)
             bindStepEvents()
-            enableOverlayDrag() // ← 新增：啟用拖曳
+            enableOverlayDrag()
         }
         updateStepText()
     }
@@ -258,23 +290,28 @@ class ChatDialogActivity : Activity() {
                 return@setOnCheckedChangeListener
             }
             if (currentText.contains("沒有明確目的")) {
-                // 若目前就是「沒有明確目的」訊息，直接自動關閉
                 showAutoDismiss(currentText)
                 isBusy = false
                 return@setOnCheckedChangeListener
             }
 
             OverlayAgent.scope.launch {
+                withContext(Dispatchers.Main) { broadcastHideCircle() }
+
                 val screenInfo = runWithOverlayHiddenDuringMonitoring { getRealTimeScreenInfo() }
                 withContext(Dispatchers.Main) { showPleaseWait() }
-                val nextMsg = withContext(Dispatchers.IO) {
+
+                val nextResult = withContext(Dispatchers.IO) {
                     OverlayAgent.callAssistantApi(
                         userMsg = initialUserMsg,
                         goal = initialUserMsg,
                         summaryText = screenInfo,
                         timestampMs = System.currentTimeMillis()
                     )
-                }.trim()
+                }
+                val nextMsg = nextResult.message
+                val boundsStr = nextResult.bounds
+
 
                 withContext(Dispatchers.Main) {
                     when {
@@ -282,17 +319,22 @@ class ChatDialogActivity : Activity() {
                             val msg = "您的輸入沒有明確目的，請告訴我您想要做到的事情喔!"
                             steps = mutableListOf(msg)
                             updateStepText()
+                            broadcastHideCircle()
                             showAutoDismiss(msg)
                         }
                         nextMsg.contains("恭喜成功") -> {
                             steps = mutableListOf("恭喜成功！")
                             updateStepText()
+                            broadcastHideCircle()
                             showSuccessThenDismiss()
                         }
                         else -> {
                             steps = mutableListOf(nextMsg.ifBlank { "請依畫面提示操作下一步" })
                             updateStepText()
                             stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = true
+
+                            // 顯示/隱藏圈圈
+                            if (!boundsStr.isNullOrBlank()) broadcastShowCircle(boundsStr) else broadcastHideCircle()
                         }
                     }
                     isBusy = false
@@ -304,6 +346,8 @@ class ChatDialogActivity : Activity() {
             steps = mutableListOf("已關閉任務，有問題請再次點擊泡泡詢問喔！")
             updateStepText()
             stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = false
+
+            broadcastHideCircle()
             stepView?.postDelayed({
                 dismissOverlay()
                 OverlayAgent.taskActive = false
@@ -311,7 +355,6 @@ class ChatDialogActivity : Activity() {
         }
     }
 
-    // === 新增：讓 overlay 可拖曳（主要是拖動 Y；X 也支援，但你的寬是 MATCH_PARENT，所以看不太出來） ===
     private fun enableOverlayDrag() {
         val sv = stepView ?: return
 
@@ -323,7 +366,6 @@ class ChatDialogActivity : Activity() {
         }
 
         sv.setOnTouchListener { _, event ->
-            // 避免和「勾選 / 關閉」衝突：如果按在它們上面就不攔截
             val check = stepView?.findViewById<CheckBox>(R.id.btn_check)
             val close = stepView?.findViewById<ImageButton>(R.id.btn_close)
             if (hit(check, event.rawX, event.rawY) || hit(close, event.rawX, event.rawY)) {
@@ -362,7 +404,6 @@ class ChatDialogActivity : Activity() {
         }
     }
 
-    // === 更新文字並同時播報 ===
     private fun updateStepText() {
         val tv = stepView?.findViewById<TextView>(R.id.tv_step) ?: return
         val text = steps.firstOrNull().orEmpty()
@@ -389,18 +430,20 @@ class ChatDialogActivity : Activity() {
         tv.text = "恭喜成功！"
         stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = false
         stepView?.visibility = View.VISIBLE
+        broadcastHideCircle()
         stepView?.postDelayed({
             dismissOverlay()
             OverlayAgent.taskActive = false
         }, 1200)
     }
 
-    // === 新增：顯示訊息並自動關閉（用於「沒有明確目的」） ===
     private fun showAutoDismiss(message: String, delayMs: Long = 3000) {
         val tv = stepView?.findViewById<TextView>(R.id.tv_step) ?: return
         tv.text = message
         stepView?.findViewById<CheckBox>(R.id.btn_check)?.isVisible = false
         stepView?.visibility = View.VISIBLE
+        // 自動關閉前先把圈圈關掉
+        broadcastHideCircle()
         stepView?.postDelayed({
             dismissOverlay()
             OverlayAgent.taskActive = false
@@ -418,7 +461,6 @@ class ChatDialogActivity : Activity() {
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density + 0.5f).toInt()
 
-    // ===== 擷取螢幕資訊 =====
     private fun getRealTimeScreenInfo(): String {
         try { ScreenMonitor.activateMonitoring() } catch (_: Throwable) {}
         try {
@@ -512,5 +554,6 @@ class ChatDialogActivity : Activity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        broadcastHideCircle()
     }
 }

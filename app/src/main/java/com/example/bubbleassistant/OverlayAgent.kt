@@ -13,12 +13,16 @@ import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
+data class AssistantResult(
+    val message: String,
+    val bounds: String? = null
+)
+
 object OverlayAgent {
-    @Volatile var taskActive: Boolean = false
-    // 全域、可長存的 scope（不會跟 Activity 一起被銷毀）
+    @Volatile
+    var taskActive: Boolean = false
     val scope: CoroutineScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
-    // 網路
     private val apiUrl = "https://app-api-service-855188038216.asia-east1.run.app"
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
     private val httpClient: OkHttpClient by lazy {
@@ -31,22 +35,18 @@ object OverlayAgent {
             .build()
     }
 
-    /** 封裝呼叫 Cloud Run（提供給畫面直接用） */
     @Throws(IOException::class)
-    fun callAssistantApi(userMsg: String, goal: String, summaryText: String, timestampMs: Long): String {
+    fun callAssistantApi(
+        userMsg: String,
+        goal: String,
+        summaryText: String,
+        timestampMs: Long
+    ): AssistantResult {
         Log.i("GeminiAPI", "開始呼叫 Gemini API")
         Log.i("GeminiAPI", "使用者問題: $userMsg")
         Log.i("GeminiAPI", "目標: $goal")
         Log.i("GeminiAPI", "螢幕監控資料長度: ${summaryText.length} 字元")
         Log.i("GeminiAPI", "時間戳: $timestampMs")
-        
-        // 顯示螢幕監控資料的前 200 字元和後 200 字元
-        if (summaryText.length > 400) {
-            Log.i("GeminiAPI", "螢幕監控資料 (前200字): ${summaryText.take(200)}...")
-            Log.i("GeminiAPI", "螢幕監控資料 (後200字): ...${summaryText.takeLast(200)}")
-        } else {
-            Log.i("GeminiAPI", "螢幕監控資料: $summaryText")
-        }
 
         val bodyJson = JSONObject().apply {
             put("user_message", userMsg)
@@ -57,55 +57,58 @@ object OverlayAgent {
             })
         }.toString()
 
-        Log.i("GeminiAPI", "發送 JSON 資料長度: ${bodyJson.length} 字元")
-        Log.d("GeminiAPI", "完整 JSON: $bodyJson")
-        
-        // 輸出發送給 Gemini 的完整資料
-        Log.i("GeminiAPI", "=== 發送給 Gemini 的完整資料 ===")
-        Log.i("GeminiAPI", "使用者問題: $userMsg")
-        Log.i("GeminiAPI", "目標: $goal")
-        Log.i("GeminiAPI", "螢幕資訊:")
-        // 分段輸出長字串，避免 log 被截斷
-        val chunks = summaryText.chunked(1000)
-        chunks.forEachIndexed { index, chunk ->
-            Log.i("GeminiAPI", "螢幕資訊片段 ${index + 1}/${chunks.size}: $chunk")
-        }
-        Log.i("GeminiAPI", "時間戳: $timestampMs")
-        Log.i("GeminiAPI", "=== 發送資料完成 ===")
-
         val req = Request.Builder()
             .url(apiUrl)
             .post(bodyJson.toRequestBody(jsonMediaType))
             .addHeader("Content-Type", "application/json")
             .build()
 
-        Log.i("GeminiAPI", "發送請求到: $apiUrl")
-
         httpClient.newCall(req).execute().use { resp ->
             val bodyStr = resp.body?.string().orEmpty()
-            Log.i("GeminiAPI", "收到回應 - HTTP 狀態碼: ${resp.code}")
-            Log.i("GeminiAPI", "回應內容長度: ${bodyStr.length} 字元")
-            
+            Log.i("GeminiAPI", "HTTP 狀態碼: ${resp.code}")
+
             if (!resp.isSuccessful) {
-                Log.e("GeminiAPI", "API 呼叫失敗: HTTP ${resp.code}")
-                Log.e("GeminiAPI", "錯誤回應: $bodyStr")
-                return "HTTP ${resp.code}\n$bodyStr"
+                Log.e("GeminiAPI", "API 失敗: HTTP ${resp.code} / $bodyStr")
+                return AssistantResult(
+                    message = "系統繁忙，請稍後再試（HTTP ${resp.code}）",
+                    bounds = null
+                )
             }
-            
-            Log.i("GeminiAPI", "API 呼叫成功")
-            Log.d("GeminiAPI", "完整回應: $bodyStr")
-            
+
             return try {
-                val obj = JSONObject(bodyStr)
-                val message = obj.optString("message", bodyStr.ifBlank { "(空回應)" })
-                Log.i("GeminiAPI", "Gemini 回應: $message")
-                message
+                val outer = JSONObject(bodyStr)
+
+                var bounds: String? = outer.optString("bounds", null).takeIf { !it.isNullOrBlank() }
+
+                val outerMsgRaw = outer.optString("message", bodyStr.ifBlank { "(空回應)" })
+                var displayMsg = outerMsgRaw
+
+                // 清掉 markdown 圍欄
+                val cleaned = outerMsgRaw
+                    .replaceFirst("^```json".toRegex(), "")
+                    .replace("```", "")
+                    .trim()
+
+                // 如果 cleaned 是 JSON，就再往內解析
+                if (cleaned.startsWith("{") && cleaned.endsWith("}")) {
+                    try {
+                        val nested = JSONObject(cleaned)
+                        // 取內層要顯示的 message
+                        displayMsg = nested.optString("message", displayMsg).ifBlank { displayMsg }
+                        // 若外層沒 bounds，再試圖從內層拿
+                        if (bounds.isNullOrBlank()) {
+                            bounds = nested.optString("bounds", null).takeIf { !it.isNullOrBlank() }
+                        }
+                    } catch (_: Exception) {
+                        // 不是合法 JSON，就用外層字串
+                    }
+                }
+
+                Log.i("GeminiAPI", "解析成功 -> message='$displayMsg', bounds=$bounds")
+                AssistantResult(message = displayMsg, bounds = bounds)
             } catch (e: Exception) {
                 Log.e("GeminiAPI", "解析回應失敗: ${e.message}")
-                val fallback = bodyStr.ifBlank { "(空回應)" }
-                Log.i("GeminiAPI", "使用備用回應: $fallback")
-                fallback
+                AssistantResult(message = bodyStr.ifBlank { "(空回應)" }, bounds = null)
             }
         }
-    }
-}
+    }}

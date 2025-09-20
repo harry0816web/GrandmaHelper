@@ -17,7 +17,15 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.BubbleAssistant"
         android:networkSecurityConfig="@xml/network_security_config">
-
+        <receiver
+            android:name=".CircleOverlayReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.example.bubbleassistant.SHOW_CIRCLE" />
+                <action android:name="com.example.bubbleassistant.HIDE_CIRCLE" />
+            </intent-filter>
+        </receiver>
         <!-- 主畫面 -->
         <activity
             android:name=".MainActivity"
