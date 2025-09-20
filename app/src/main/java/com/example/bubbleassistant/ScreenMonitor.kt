@@ -119,6 +119,47 @@ class ScreenMonitor : AccessibilityService() {
                 getLatestScreenInfo()
             } ?: "螢幕監控服務未運行"
         }
+        
+        /**
+         * 靜態方法：使用不同策略掃描螢幕
+         * @param strategy 掃描策略："priority", "middle", "main_content", "combined", "auto"
+         * @return 掃描結果字串
+         */
+        fun scanWithStrategy(strategy: String): String {
+            return instance?.let { monitor ->
+                try {
+                    monitor.scanWithStrategy(strategy)
+                } catch (e: Exception) {
+                    Log.e("ScreenMonitor", "掃描策略執行失敗: ${e.message}")
+                    "掃描失敗: ${e.message}"
+                }
+            } ?: "螢幕監控服務未運行"
+        }
+        
+        /**
+         * 靜態方法：優先級掃描（推薦）
+         */
+        fun scanWithPriority(): String = scanWithStrategy("priority")
+        
+        /**
+         * 靜態方法：中間區域掃描
+         */
+        fun scanMiddleRegion(): String = scanWithStrategy("middle")
+        
+        /**
+         * 靜態方法：主內容掃描
+         */
+        fun scanMainContent(): String = scanWithStrategy("main_content")
+        
+        /**
+         * 靜態方法：組合策略掃描
+         */
+        fun scanWithCombined(): String = scanWithStrategy("combined")
+        
+        /**
+         * 靜態方法：自動策略掃描（預設）
+         */
+        fun scanWithAuto(): String = scanWithStrategy("auto")
     }
 
     // 當服務連接時呼叫
@@ -220,8 +261,8 @@ class ScreenMonitor : AccessibilityService() {
                     updateOverlay("LINE General Scan:\n$summary")
                 }
             } else {
-                // 非 LINE 應用，使用通用掃描
-                val summary = buildNodeSummary(rootNode, maxItems = 100)
+                // 非 LINE 應用，使用自動策略掃描
+                val summary = scanWithStrategy("auto")
                 updateLatestScreenInfo(summary)
                 updateOverlay(summary)
             }
@@ -368,7 +409,7 @@ class ScreenMonitor : AccessibilityService() {
     }
 
     // --- Node summary builder ---
-    private fun buildNodeSummary(root: AccessibilityNodeInfo, maxItems: Int = 200): String {
+    private fun buildNodeSummary(root: AccessibilityNodeInfo, maxItems: Int = 300): String {
         val items = mutableListOf<String>()
         val queue: ArrayDeque<AccessibilityNodeInfo> = ArrayDeque()
         queue.add(root)
@@ -390,18 +431,8 @@ class ScreenMonitor : AccessibilityService() {
             // 更寬鬆的可見性檢查
             val isVisible = rect.width() > 0 && rect.height() > 0
 
-            // 更寬鬆的包含條件，抓取更多元素
-            val shouldInclude = text != null || 
-                    (viewId != null && viewId.isNotBlank()) ||
-                    node.isClickable ||
-                    node.isCheckable ||
-                    node.isEditable ||
-                    node.isScrollable ||
-                    node.isSelected ||
-                    node.isFocused ||
-                    (className != null && isImportantClass(className)) ||
-                    (node.childCount > 0 && rect.width() > 20 && rect.height() > 20) || // 降低容器大小要求
-                    (className != null && (className.contains("View") || className.contains("Layout"))) // 包含更多 View 類型
+            // 使用優化的 shouldInclude 邏輯
+            val shouldInclude = shouldIncludeNode(node, text, viewId, className, rect)
 
             if (shouldInclude && isVisible) {
                 val label = buildString {
@@ -424,10 +455,17 @@ class ScreenMonitor : AccessibilityService() {
                 items.add(label)
             }
 
-            for (i in 0 until node.childCount) {
-                node.getChild(i)?.let { child ->
-                    queue.add(child)
-                }
+            // 使用優先級掃描策略
+            enqueueChildrenPrioritized(node, queue)
+        }
+
+        // 當達到上限時，自動對主內容容器進行二次掃描
+        if (items.size >= maxItems) {
+            Log.i(TAG, "達到掃描上限 $maxItems，執行主內容二次掃描")
+            val mainContentItems = scanMainContentOnly(root)
+            if (mainContentItems.isNotEmpty()) {
+                items.addAll(mainContentItems.take(50)) // 補強最多50個主內容元素
+                Log.i(TAG, "主內容二次掃描補強了 ${mainContentItems.size} 個元素")
             }
         }
 
@@ -454,6 +492,273 @@ class ScreenMonitor : AccessibilityService() {
                 className.contains("MaterialCardView", ignoreCase = true) ||
                 className.contains("ViewGroup", ignoreCase = true) ||
                 className.contains("View", ignoreCase = true)
+    }
+    
+    /**
+     * 優化的 shouldInclude 邏輯，按優先級過濾節點
+     */
+    private fun shouldIncludeNode(node: AccessibilityNodeInfo, text: String?, viewId: String?, className: String?, rect: Rect): Boolean {
+        // 優先級 1: 文字內容
+        if (text != null && text.isNotBlank()) return true
+        
+        // 優先級 2: 可互動元素
+        if (node.isClickable || node.isEditable || node.isCheckable || node.isScrollable || 
+            node.isSelected || node.isFocused) return true
+        
+        // 優先級 3: 重要ID
+        if (viewId != null && viewId.isNotBlank()) {
+            val id = viewId.lowercase()
+            // 跳過常見的容器 ID
+            if (id.contains("toolbar") || id.contains("navigation") || id.contains("status_bar") || 
+                id.contains("action_bar") || id.contains("bottom_nav") || id.contains("tab_bar")) {
+                return false
+            }
+            return true
+        }
+        
+        // 優先級 4: 重要類別
+        if (className != null && isImportantClass(className)) return true
+        
+        // 優先級 5: 合理容器（避免過大的容器）
+        if (node.childCount > 0 && rect.width() > 20 && rect.height() > 20 && 
+            rect.width() < 2000 && rect.height() < 2000) return true
+        
+        return false
+    }
+    
+    /**
+     * 優先級掃描策略 - 改變 BFS 的取出順序
+     */
+    private fun enqueueChildrenPrioritized(node: AccessibilityNodeInfo, queue: ArrayDeque<AccessibilityNodeInfo>) {
+        val highPriorityChildren = mutableListOf<AccessibilityNodeInfo>()
+        val normalChildren = mutableListOf<AccessibilityNodeInfo>()
+        val lowPriorityChildren = mutableListOf<AccessibilityNodeInfo>()
+        
+        for (i in 0 until node.childCount) {
+            node.getChild(i)?.let { child ->
+                val viewId = child.viewIdResourceName?.lowercase() ?: ""
+                val className = child.className?.toString()?.lowercase() ?: ""
+                
+                when {
+                    // 主內容容器優先級最高
+                    viewId.contains("results") || viewId.contains("chat_list") || 
+                    viewId.contains("content") || viewId.contains("main") ||
+                    className.contains("recyclerview") || className.contains("listview") -> {
+                        highPriorityChildren.add(child)
+                    }
+                    // 工具列、導航欄等優先級最低
+                    viewId.contains("toolbar") || viewId.contains("navigation") || 
+                    viewId.contains("status_bar") || viewId.contains("action_bar") ||
+                    viewId.contains("bottom_nav") || viewId.contains("tab_bar") -> {
+                        lowPriorityChildren.add(child)
+                    }
+                    else -> {
+                        normalChildren.add(child)
+                    }
+                }
+            }
+        }
+        
+        // 使用 addFirst() 改變 BFS 的取出順序：高優先級 -> 普通 -> 低優先級
+        highPriorityChildren.forEach { queue.addFirst(it) }
+        normalChildren.forEach { queue.addFirst(it) }
+        lowPriorityChildren.forEach { queue.addFirst(it) }
+    }
+    
+    /**
+     * 區域過濾掃描 - 只掃描螢幕中間區域
+     */
+    private fun buildNodeSummaryInRect(root: AccessibilityNodeInfo, rect: Rect, maxItems: Int = 300): String {
+        val items = mutableListOf<String>()
+        val queue: ArrayDeque<AccessibilityNodeInfo> = ArrayDeque()
+        queue.add(root)
+
+        while (queue.isNotEmpty() && items.size < maxItems) {
+            val node = queue.removeFirst()
+            val nodeRect = Rect()
+            node.getBoundsInScreen(nodeRect)
+            
+            // 只掃描指定區域內的節點
+            if (Rect.intersects(rect, nodeRect)) {
+                val text = (node.text?.toString()?.takeIf { it.isNotBlank() }
+                    ?: node.contentDescription?.toString()?.takeIf { it.isNotBlank() }
+                    ?: if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        node.hintText?.toString()?.takeIf { it.isNotBlank() }
+                    } else null)
+                val viewId = node.viewIdResourceName
+                val className = node.className?.toString()
+                
+                val isVisible = nodeRect.width() > 0 && nodeRect.height() > 0
+                val shouldInclude = shouldIncludeNode(node, text, viewId, className, nodeRect)
+
+                if (shouldInclude && isVisible) {
+                    val label = buildString {
+                        if (text != null) append("\u2022 \"$text\"") else append("\u2022 (no text)")
+                        if (!viewId.isNullOrBlank()) append("  [id=$viewId]")
+                        if (!className.isNullOrBlank()) append("  <$className>")
+                        
+                        val interactions = mutableListOf<String>()
+                        if (node.isClickable) interactions.add("clickable")
+                        if (node.isEditable) interactions.add("editable")
+                        if (node.isCheckable) interactions.add("checkable")
+                        if (node.isScrollable) interactions.add("scrollable")
+                        if (node.isSelected) interactions.add("selected")
+                        if (node.isFocused) interactions.add("focused")
+                        if (interactions.isNotEmpty()) append("  {${interactions.joinToString(",")}}")
+                        
+                        append("  @(${nodeRect.left},${nodeRect.top},${nodeRect.width()}x${nodeRect.height()})")
+                    }
+                    items.add(label)
+                }
+            }
+
+            // 繼續掃描子節點
+            for (i in 0 until node.childCount) {
+                node.getChild(i)?.let { child ->
+                    queue.add(child)
+                }
+            }
+        }
+
+        val header = "Captured elements in region: ${items.size} (showing up to $maxItems)"
+        return (sequenceOf(header) + items.asSequence()).joinToString(separator = "\n")
+    }
+    
+    /**
+     * 主 RecyclerView 定向掃描 - 直接針對主內容容器進行掃描
+     */
+    private fun scanMainContentOnly(root: AccessibilityNodeInfo): List<String> {
+        val items = mutableListOf<String>()
+        val queue: ArrayDeque<AccessibilityNodeInfo> = ArrayDeque()
+        queue.add(root)
+
+        while (queue.isNotEmpty()) {
+            val node = queue.removeFirst()
+            val viewId = node.viewIdResourceName?.lowercase() ?: ""
+            val className = node.className?.toString()?.lowercase() ?: ""
+            
+            // 尋找主內容容器
+            if (viewId.contains("results") || viewId.contains("chat_list") || 
+                viewId.contains("content") || viewId.contains("main") ||
+                className.contains("recyclerview") || className.contains("listview")) {
+                
+                // 掃描該容器內的所有元素
+                scanContainerContent(node, items)
+            }
+
+            // 繼續尋找主內容容器
+            for (i in 0 until node.childCount) {
+                node.getChild(i)?.let { child ->
+                    queue.add(child)
+                }
+            }
+        }
+
+        return items
+    }
+    
+    /**
+     * 掃描容器內容
+     */
+    private fun scanContainerContent(container: AccessibilityNodeInfo, items: MutableList<String>) {
+        val queue: ArrayDeque<AccessibilityNodeInfo> = ArrayDeque()
+        queue.add(container)
+
+        while (queue.isNotEmpty()) {
+            val node = queue.removeFirst()
+            val text = (node.text?.toString()?.takeIf { it.isNotBlank() }
+                ?: node.contentDescription?.toString()?.takeIf { it.isNotBlank() }
+                ?: if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    node.hintText?.toString()?.takeIf { it.isNotBlank() }
+                } else null)
+            val viewId = node.viewIdResourceName
+            val className = node.className?.toString()
+            
+            val rect = Rect()
+            node.getBoundsInScreen(rect)
+            
+            val isVisible = rect.width() > 0 && rect.height() > 0
+            val shouldInclude = shouldIncludeNode(node, text, viewId, className, rect)
+
+            if (shouldInclude && isVisible) {
+                val label = buildString {
+                    if (text != null) append("\u2022 \"$text\"") else append("\u2022 (no text)")
+                    if (!viewId.isNullOrBlank()) append("  [id=$viewId]")
+                    if (!className.isNullOrBlank()) append("  <$className>")
+                    
+                    val interactions = mutableListOf<String>()
+                    if (node.isClickable) interactions.add("clickable")
+                    if (node.isEditable) interactions.add("editable")
+                    if (node.isCheckable) interactions.add("checkable")
+                    if (node.isScrollable) interactions.add("scrollable")
+                    if (node.isSelected) interactions.add("selected")
+                    if (node.isFocused) interactions.add("focused")
+                    if (interactions.isNotEmpty()) append("  {${interactions.joinToString(",")}}")
+                    
+                    append("  @(${rect.left},${rect.top},${rect.width()}x${rect.height()})")
+                }
+                items.add(label)
+            }
+
+            for (i in 0 until node.childCount) {
+                node.getChild(i)?.let { child ->
+                    queue.add(child)
+                }
+            }
+        }
+    }
+    
+    /**
+     * 多策略掃描方法
+     */
+    fun scanWithStrategy(strategy: String): String {
+        val root = rootInActiveWindow ?: return "No root node available"
+        
+        return when (strategy.lowercase()) {
+            "priority" -> {
+                Log.i(TAG, "使用優先級掃描策略")
+                buildNodeSummary(root, maxItems = 300)
+            }
+            "middle" -> {
+                Log.i(TAG, "使用中間區域掃描策略")
+                val middleRect = Rect(0, 239, 1080, 2076) // 螢幕中間區域
+                buildNodeSummaryInRect(root, middleRect, maxItems = 300)
+            }
+            "main_content" -> {
+                Log.i(TAG, "使用主內容掃描策略")
+                val items = scanMainContentOnly(root)
+                val header = "Main content elements: ${items.size}"
+                (sequenceOf(header) + items.asSequence()).joinToString(separator = "\n")
+            }
+            "combined" -> {
+                Log.i(TAG, "使用組合策略（優先級 + 主內容補強）")
+                val priorityResult = buildNodeSummary(root, maxItems = 250)
+                val mainContentItems = scanMainContentOnly(root)
+                if (mainContentItems.isNotEmpty()) {
+                    val combinedItems = priorityResult.split("\n").toMutableList()
+                    combinedItems.addAll(mainContentItems.take(50))
+                    val header = "Combined elements: ${combinedItems.size - 1}"
+                    combinedItems[0] = header
+                    combinedItems.joinToString("\n")
+                } else {
+                    priorityResult
+                }
+            }
+            "auto" -> {
+                Log.i(TAG, "使用自動策略（預設改進策略）")
+                // LINE 應用使用組合策略，其他應用使用優先級掃描
+                val packageName = root.packageName?.toString()
+                if (packageName == "jp.naver.line.android") {
+                    scanWithStrategy("combined")
+                } else {
+                    scanWithStrategy("priority")
+                }
+            }
+            else -> {
+                Log.w(TAG, "未知策略: $strategy，使用預設策略")
+                scanWithStrategy("auto")
+            }
+        }
     }
     
     /**
@@ -1272,7 +1577,7 @@ class ScreenMonitor : AccessibilityService() {
                             val packageName = root.packageName?.toString()
                             if (packageName != "com.example.bubbleassistant") {
                                 Log.d(TAG, "處理非 LINE 視窗: ${windowInfo.title}")
-                                val summary = buildNodeSummary(root, maxItems = 50)
+                                val summary = scanWithStrategy("auto")
                                 if (summary.contains("Captured elements:") && !summary.contains("Captured elements: 0")) {
                                     updateLatestScreenInfo("Other App:\n$summary")
                                     updateOverlay("Other App:\n$summary")
