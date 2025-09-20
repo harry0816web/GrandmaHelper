@@ -36,12 +36,6 @@ GrandmaHelper is an Android application that helps seniors navigate smartphones 
 - **High Contrast**: Clear visual indicators and readable text
 - **Tutorial System**: Built-in guided tutorials for first-time users
 
-### 🎓 Interactive Learning
-- **Step-by-Step Tutorials**: Visual guides for common LINE functions
-- **Feature Discovery**: Highlights useful LINE features seniors might not know
-- **Practice Mode**: Safe environment to practice without affecting real conversations
-- **Help System**: Contextual help based on current screen
-
 ## 🛠️ Supporting Backend Services
 
 The app is powered by three cloud-based services that handle AI processing and monitoring:
@@ -128,20 +122,14 @@ GrandmaHelper/
 - **Device**: Android device for testing
 - **Backend** (optional): The app works with deployed cloud services
 
-### 1. Clone Repository
-```bash
-git clone https://github.com/sjtseng0924/GrandmaHelper.git
-cd GrandmaHelper
-```
-
-### 2. Build Android App
+### Build Android App
 
 1. **Open Android Studio** and import the project
 2. **Sync Gradle** files
 3. **Connect Android device** with USB debugging enabled
 4. **Build and install** the app
 
-### 3. App Setup & Permissions
+### App Setup & Permissions
 
 On your Android device:
 
@@ -156,23 +144,6 @@ On your Android device:
    - Internet access (automatic)
    - Storage access for image saving (when prompted)
 
-### 4. First Launch
-
-1. **Open GrandmaHelper** from your app drawer
-2. **Toggle the bubble assistant** on the Settings tab
-3. **Try the Morning Image feature** on the second tab
-4. **Follow the tutorial** for LINE guidance setup
-
-## 🎯 How to Use the App
-
-### Typical Workflow
-
-1. **Enable the Assistant**: Open GrandmaHelper and turn on the floating bubble
-2. **Set Your Goal**: Tell the assistant what you want to do (e.g., "Send morning image to my son")
-3. **Follow AI Guidance**: The AI analyzes your screen and provides step-by-step instructions
-4. **Generate Content**: For morning images, the app automatically creates personalized pictures
-5. **Complete Task**: Follow the guidance to accomplish your goal in LINE
-
 ### Supported Operations
 
 - **📱 Basic LINE Functions**: Send messages, make voice/video calls
@@ -180,23 +151,6 @@ On your Android device:
 - **👥 Contact Management**: Search friends, create groups
 - **🛒 LINE Services**: Buy stickers, use LINE Pay
 - **🌅 Morning Images**: Generate and share personalized greeting pictures
-
-### Example Use Cases
-
-**"Send morning greeting to family"**
-1. Greeting Image Service generates a beautiful morning image with Chinese greetings
-2. Guides you to open LINE and select the contact
-3. Tap Indicator shows exactly where to tap to attach and send the image
-
-**"Call my daughter"**
-1. Assists with finding your daughter's contact
-2. Tap Indicator shows where to tap the voice call button
-3. Helps initiate the call
-
-**"Buy new stickers"**
-1. Navigates you to LINE's sticker shop
-2. Tap Indicator highlights stickers to browse and select
-3. Guides through the purchase process
 
 ## 🛠️ For Developers
 
@@ -212,35 +166,3 @@ Use the included monitoring tool for development:
 ```bash
 # Monitor app behavior in real-time
 python realtimeMonitor.py --verbose --save-json
-
-# View app logs
-adb logcat | grep BubbleAssistant
-```
-
-## 🤝 Contributing
-
-1. **Fork** the repository
-2. **Create feature branch**: `git checkout -b feature/new-feature`
-3. **Commit changes**: `git commit -m 'Add: new feature'`
-4. **Push branch**: `git push origin feature/new-feature`
-5. **Create Pull Request**
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- **Google Cloud Platform** for AI and cloud services
-- **Android Open Source Project** for Jetpack Compose and libraries
-- **Open Source Community** for various Python and Kotlin libraries
-
-## 📞 Contact
-
-- **Developer**: [sjtseng0924](https://github.com/sjtseng0924)
-- **Project Repository**: [GrandmaHelper](https://github.com/sjtseng0924/GrandmaHelper)
-- **Issues**: [Report Issues](https://github.com/sjtseng0924/GrandmaHelper/issues)
-
----
-
-**💡 Making technology more accessible to seniors, making love easier to share!**
