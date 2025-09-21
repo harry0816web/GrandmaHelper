@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 未選中狀態 -->
+    <item android:state_checked="false">
+        <shape android:shape="rectangle">
+            <stroke android:width="2dp" android:color="#000000" />
+            <solid android:color="@android:color/transparent" />
+            <size android:width="16dp" android:height="16dp" />
+        </shape>
+    </item>
+    
+    <!-- 選中狀態 -->
+    <item android:state_checked="true">
+        <layer-list>
+            <!-- 背景 -->
+            <item>
+                <shape android:shape="rectangle">
+                    <stroke android:width="2dp" android:color="#000000" />
+                    <solid android:color="@android:color/transparent" />
+                    <size android:width="16dp" android:height="16dp" />
+                </shape>
+            </item>
+            <!-- 勾勾 -->
+            <item android:drawable="@drawable/checkmark_black" />
+        </layer-list>
+    </item>
+</selector>
