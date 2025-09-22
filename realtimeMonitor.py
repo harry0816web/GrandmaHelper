@@ -3,12 +3,6 @@
 實時監控腳本：即時顯示手機端的所有變動資訊
 Real-time monitor script: Display all changes from mobile device instantly
 
-功能特色 Features:
-- 🔄 實時監控手機端所有變動
-- ⚡ 即時響應變化
-- 📊 顯示變化差異
-- 🔍 支援資料過濾和搜尋
-
 使用方法 Usage:
 1. 確保 Android 設備已連接且 ADB 可用
 2. 啟動 LineHelperApp 並開啟 Accessibility Service
